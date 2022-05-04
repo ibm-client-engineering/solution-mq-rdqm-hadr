@@ -165,6 +165,24 @@ This requires you to go to the following link and retrieving IBM MQ Advanced dev
 Once you have the package,  you will need to upload it to all six hosts. This document will assume you have done this.
 
 ##  6. <a name='Security'></a>Security
+<b>MQIPT Security with TLS</b>
+MQIPT accepts a TLS from a queue manager or a client, the certificate is validated. The MQIPT also terminates the connection this allows for dynamic configuration of backend servers.
+
+- Certificates can be blocked or accepted based on the Distinguished Name.
+- Certificate revocation checking is preformed.
+- A certificate exit can be written to perform additional checks.  
+
+
+<b>Advanced Message Security ( AMS )</b> expands IBM MQ security services to provide data signing and encryption at the message level. The expanded services guarantees that message data has not been modified between when it is originally placed on a queue and when it is retrieved. In addition, AMS verifies that a sender of message data is authorized to place signed messages on a target queue.
+
+Referance Links:
+
+https://www.ibm.com/docs/en/ibm-mq/9.0?topic=tls-configuring-security-mq
+
+https://www.ibm.com/docs/en/ibm-mq/9.0?topic=securing-planning-your-security-requirements
+
+https://www.ibm.com/docs/en/ibm-mq/9.0?topic=mechanisms-message-security-in-mq
+
 
 ##  7. <a name='Cost'></a>Cost
 
