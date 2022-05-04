@@ -4,6 +4,18 @@
 
 ## Background
 
+The goal of this project is to demonstrate the following proposed topologies in a hybrid multi-cloud scenario:
+- Setting up architectures, configurations and standards for distributed app rotation
+- Guaranteed message delivery
+- Overall guidance on security exits
+- Delivery over other mechanisms, not just MQ server
+- Multiple availability zones across multiple clouds
+- 
+Doing this would be great, because we will:
+- Validate MQIPT use cases
+- Enhance productivity and user experience by how easy it is to define and deploy
+- Develop pattern for modernization efforts
+
 ## Goals
 
 # Solution Strategy
