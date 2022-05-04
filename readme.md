@@ -1,7 +1,8 @@
 # Introduction and Goals
 
-## Background and Business Problem
+## Background
 
+## Goals
 
 # Solution Strategy
 
