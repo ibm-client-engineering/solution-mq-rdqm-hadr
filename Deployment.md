@@ -106,11 +106,11 @@ mqm       soft  nofile     10240
 
 ## Installing MQ
 
-This requires you to go to the following link and retrieving IBM MQ version 9.2.5:
+This requires you to go to the following link and retrieving IBM MQ Advanced developer version 9.2.5:
 
-https://w3-03.ibm.com/software/xl/download/ticket.wss
+[**mqadv_dev925_linux_x86-64.tar.gz**](https://www14.software.ibm.com/cgi-bin/weblap/lap.pl?popup=Y&li_formnum=L-APIG-BYHCL7&accepted_url=https://public.dhe.ibm.com/ibmdl/export/pub/software/websphere/messaging/mqadv/mqadv_dev925_linux_x86-64.tar.gz)
 
-Once you have the package, **IBM_MQ_9.2.5_LINUX_X86-64.tar.gz** you will need to upload it to all six hosts. This document will assume you have done this.
+Once you have the package,  you will need to upload it to all six hosts. This document will assume you have done this.
 
 
 
