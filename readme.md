@@ -28,8 +28,6 @@ This solution architecture demonstrates how you can deploy the Replicated Data Q
 
 ## Building Block View
 
-![test](./resources/rdqm-hadr-ibmcloud.png)
-## Deployment
 ## [Deployment](Deployment.md)
 
 ## Security
