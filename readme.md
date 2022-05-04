@@ -19,9 +19,8 @@
 
 ##  1. <a name='Background'></a>Background
 
-<<<<<<< HEAD
+
 ##  2. <a name='Goals'></a>Goals
-=======
 The goal of this project is to demonstrate the following proposed topologies in a hybrid multi-cloud scenario:
 - Setting up architectures, configurations and standards for distributed app rotation
 - Guaranteed message delivery
@@ -35,7 +34,7 @@ Doing this would be great, because we will:
 - Develop pattern for modernization efforts
 
 ## Goals
->>>>>>> 2303949e0525f39a6e3886b3d2e1aa6faa11e37e
+
 
 # Solution Strategy
 
