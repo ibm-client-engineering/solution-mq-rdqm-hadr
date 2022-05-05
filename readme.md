@@ -9,7 +9,6 @@
 * 5. [Deployment](#Deployment)
 * 6. [Security](#Security)
 * 7. [Cost](#Cost)
-* 8. [Risks and Technical Debts](#RisksandTechnicalDebts)
 * 9. [Testing](#Testing)
 
 <!-- vscode-markdown-toc-config
@@ -30,7 +29,7 @@ The goal of this project is to demonstrate the following proposed topologies in 
 - Overall guidance on security exits
 - Delivery over other mechanisms, not just MQ server
 - Multiple availability zones across multiple clouds
-- 
+-
 Doing this would be great, because we will:
 - Validate MQIPT use cases
 - Enhance productivity and user experience by how easy it is to define and deploy
@@ -43,9 +42,11 @@ Doing this would be great, because we will:
 
 ##  3. <a name='Overview'></a>Overview
 
-This solution architecture demonstrates how you can deploy the Replicated Data Queue Manager in a Highly Available, Disaster Recovery enabled configuration across two isolated regions (MZRs in IBM Cloud or Regions in AWS).
+This solution architecture demonstrates how you can deploy the Replicated Data Queue Manager in a Highly Available, Disaster Recovery enabled configuration across two regions that are interconnected/peered by a construct like the Transit Gateway(MZRs in IBM Cloud or Regions in AWS).
 
-- MQIPT nodes are setup in the DMZ to accept traffic from the internet and proxy the traffic to Application Load Balancer that in turn will direct the traffic to the active RDQM instance in one of the three active zones.
+- MQIPT nodes are setup in a DMZ subnet that is able to accept traffic from the internet on port `1501` and `1502`. The IPT nodes proxy the traffic to an Application Load Balancer that in turn will direct the traffic to the active RDQM instance in one of the three active zones.
+
+
 
 ##  4. <a name='BuildingBlockView'></a>Building Block View
 
@@ -62,7 +63,7 @@ This document serves as a documented process for installing IBM MQ and RDMQ boun
 In order to build out our setup, we are assuming three hosts that live in three different zones in a Dallas region and three hosts in three zones living in the Washington DC region . Our bastion host will also live in WDC and that's where we'll base our primary HA stack. We also assume root access via ssh to all hosts here. The OS on the mq hosts for our purposes will be **Red Hat 8.4**. We will also assume they are properly subscribed.
 
 ```
-10.241.1.4      wdc-bastion      
+10.241.1.4      wdc-bastion
 
 # WDC mq hosts
 10.241.0.4	        wdc1-mq1
@@ -99,7 +100,7 @@ IBM MQ installation recommends multiple separate disks for various aspects of MQ
 
 ```
 groupadd -g 1001 mqm
-useradd -g mqm -u 1001 -m -c "MQM User" mqm 
+useradd -g mqm -u 1001 -m -c "MQM User" mqm
 ```
 2. Update mqm user's bashrc and bash profile. These paths don't exist as of yet until the actual installation of MQ.
 ```
@@ -111,7 +112,7 @@ echo 'export PATH=$PATH:/opt/mqm/bin:/opt/mqm/samp/bin:' >> ~mqm/.bash_profile
 3. Update `/etc/sudoers` with the correct permissions for mqm user
 ```
 echo "%mqm ALL=(ALL) NOPASSWD: /opt/mqm/bin/crtmqm,/opt/mqm/bin/dltmqm,/opt/mqm/bin/rdqmadm,/opt/mqm/bin/rdqmstatus" >> /etc/sudoers
-``` 
+```
 4. **OPTIONAL** - for ease of use and communication, you can create an ssh key for the `mqm` user and propagate it across the nodes in each stack. This isn't required, but it can mean you might only need to run some commands on the primary node in each stack and it will run the appropriate commands on each node behind the scenes.
 
     On Node 1:
@@ -334,7 +335,7 @@ Let's break down these commands:
 - **`-sx`** - Replicated data HA Primary queue manager. This is run only on a primary node where you want the queue to live.
 - **`-rr [p,s]`** - This is region specific. When you create your DR Queue, you would use "p" for the region you want to be DR Primary and "s" for the region you want to be standby. If you accidentally use "p" for both regions, your clusters will not talk to each other.
 - **`-rl`**  `10.241.0.4,10.241.64.4,10.241.128.4` - Specifies the local ip address(es) to be used for DR replication of this queue manager. Basically your local region nodes go here.
-- **`-ri`**  `10.240.0.4,10.240.64.4,10.240.128.4` - Specifies the IP address of the interface used for replication on the server hosting the secondary instance of the queue manager. Basically your remote region's nodes. 
+- **`-ri`**  `10.240.0.4,10.240.64.4,10.240.128.4` - Specifies the IP address of the interface used for replication on the server hosting the secondary instance of the queue manager. Basically your remote region's nodes.
 - **`-rp 7001`** - Specifies the port to use for DR replication. We're using port 7001 in this example.
 - **`-fs 3072M`** - Specifies the size of the filesystem to create for the queue manager - that is, the size of the logical volume which is created in the drbdpool volume group. Another logical volume of that size is also created, to support the reverting to snapshot operation, so the total storage for the DR RDQM is just over twice that specified here.
 
@@ -398,11 +399,11 @@ This queue service listener should be active on port 1501 on the primary node in
 You can test failover with the following commands:
 
 ```
-This tells the first node in the WDC region to become DR standby for the DRHAQM1 queue service 
+This tells the first node in the WDC region to become DR standby for the DRHAQM1 queue service
 [root@wdc1-mq1 ~]# rdqmdr -s -m DRHAQM1
 
 
-This tells the first node in the DAL region to become DR primary for the DRHAQM1 queue service 
+This tells the first node in the DAL region to become DR primary for the DRHAQM1 queue service
 [root@dal1-mq1 ~]# rdqmdr -p -m DRHAQM1
 ```
 
@@ -478,9 +479,9 @@ MQIPT accepts a TLS from a queue manager or a client, the certificate is validat
 
 - Certificates can be blocked or accepted based on the Distinguished Name.
 - Certificate revocation checking is preformed.
-- A certificate exit can be written to perform additional checks.  
+- A certificate exit can be written to perform additional checks.
 
-![test](./resources/MQIPT_TLS_Security.png)
+![ipt-security-image](./resources/MQIPT_TLS_Security.png)
 
 <b>Advanced Message Security ( AMS )</b> expands IBM MQ security services to provide data signing and encryption at the message level. The expanded services guarantees that message data has not been modified between when it is originally placed on a queue and when it is retrieved. In addition, AMS verifies that a sender of message data is authorized to place signed messages on a target queue.
 
@@ -495,8 +496,10 @@ https://www.ibm.com/docs/en/ibm-mq/9.0?topic=mechanisms-message-security-in-mq
 
 ##  7. <a name='Cost'></a>Cost
 
-##  8. <a name='RisksandTechnicalDebts'></a>Risks and Technical Debts
-
 ##  9. <a name='Testing'></a>Testing
+
+### Testing Tools
+-  [MQ Toolkit for Mac][https://developer.ibm.com/tutorials/mq-macos-dev/] comes with sample client programs to test. 
+
 
 # Architecture Decisions
