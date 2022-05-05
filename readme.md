@@ -428,5 +428,8 @@ https://www.ibm.com/docs/en/ibm-mq/9.0?topic=mechanisms-message-security-in-mq
 
 ##  9. <a name='Testing'></a>Testing
 
+### Testing Tools
+-  [MQ Toolkit for Mac][https://developer.ibm.com/tutorials/mq-macos-dev/] comes with sample client programs to test. 
+
 
 # Architecture Decisions
