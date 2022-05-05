@@ -52,12 +52,12 @@ This solution architecture demonstrates how you can deploy the Replicated Data Q
 ![test](./resources/rdqm-hadr-ibmcloud.png)
 ##  5. <a name='Deployment'></a>Deployment
 
-### Manual Deployment
-#### Installing and Configuring IBM MQ and RDQM
+## Manual Deployment
+### Installing and Configuring IBM MQ and RDQM
 
 This document serves as a documented process for installing IBM MQ and RDMQ bound to the # Solution Strategy. It assumes some basic familiarlity with Linux command line.
 
-#### Installation of MQ
+### Installation of MQ
 
 In order to build out our setup, we are assuming three hosts that live in three different zones in a Dallas region and three hosts in three zones living in the Washington DC region . Our bastion host will also live in WDC and that's where we'll base our primary HA stack. We also assume root access via ssh to all hosts here. The OS on the mq hosts for our purposes will be **Red Hat 8.4**. We will also assume they are properly subscribed.
 
@@ -65,19 +65,19 @@ In order to build out our setup, we are assuming three hosts that live in three 
 10.241.1.4      wdc-bastion      
 
 # WDC mq hosts
-10.241.0.4	    wdc1-mq1
+10.241.0.4	        wdc1-mq1
 10.241.64.4    	    wdc2-mq1
 10.241.128.4	    wdc3-mq1
 
 # DAL mq hosts
-10.240.0.4	    dal1-mq1
-10.240.64.4	    dal2-mq1
+10.240.0.4	        dal1-mq1
+10.240.64.4	        dal2-mq1
 10.240.128.4	    dal3-mq1
 ```
 
 Above is what the hosts file on our bastion host should look like. We would connect to the bastion host via a public ip. We won't go into configuring ssh `proxyjump` in this section.
 
-#### Host layout
+### Host layout
 
 Each of the above hosts barring the bastion have two extra disks attached:
 
@@ -93,7 +93,7 @@ Disk /dev/vde: 25 GiB, 26843545600 bytes, 52428800 sectors
 
 IBM MQ installation recommends multiple separate disks for various aspects of MQ to increase performance and minimize overall I/O during heavy operations. For our purposes, we will only be going with one volume for MQ.
 
-#### System preparation
+### System preparation
 
 1. Create the mqm userid and group. This step occurs on all host minus the bastion host.
 
@@ -163,7 +163,72 @@ This requires you to go to the following link and retrieving IBM MQ Advanced dev
 
 [**mqadv_dev925_linux_x86-64.tar.gz**](https://www14.software.ibm.com/cgi-bin/weblap/lap.pl?popup=Y&li_formnum=L-APIG-BYHCL7&accepted_url=https://public.dhe.ibm.com/ibmdl/export/pub/software/websphere/messaging/mqadv/mqadv_dev925_linux_x86-64.tar.gz)
 
-Once you have the package,  you will need to upload it to all six hosts. This document will assume you have done this.
+Once you have the package,  you will need to upload it to all six hosts. This document will assume you have done this. The following steps need to be taken on each host.
+
+1. Extract the package on each host
+```
+tar zxvf mqadv_dev925_linux_x86-64.tar.gz
+cd MQServer
+```
+2. Run the mqlicense script to accept the IBM license
+```
+./mqlicense.sh -accept
+```
+3. Install the packages for MQ on each host
+```
+dnf -y install MQSeries*.rpm --nogpgcheck
+```
+4. Run the following command **ONLY** on the primary node in each stack. For example, for our WDC stack we would run this on `wdc1-mq1` and for our Dallas stack we would run this only on `dal1-mq1`
+```
+[root@dal1-mq1 ~]# /opt/mqm/bin/setmqinst -i -p /opt/mqm
+[root@wdc1-mq1 ~]# /opt/mqm/bin/setmqinst -i -p /opt/mqm
+```
+
+### **Installing RDQM**
+
+One of the primary components for RDQM is DRBD. IBM packages its own kmod-drbd packages with the MQ tar file. This is why knowing what kernel version you are running is critical. For this, IBM included a script called `modver`. The following commands need to be performed on every host in each region.
+
+1. On each host, run the `modver` script to determine which kmod to install
+```
+cd ~/MQServer/Advanced/RDQM/PreReqs/el8/kmod-drbd-9
+./modver
+kmod-drbd-9.1.5_4.18.0_305-1.x86_64.rpm
+```
+This should show you which of the kernel packages in that directory that you need to install. If it returns any sort of error, you need to follow the link it provides and download the appropriate kmod-drbd version.
+
+2. Install the kmod-drbd version
+```
+cd ~/MQServer/Advanced/RDQM/PreReqs/el8/kmod-drbd-9
+dnf -y install $(./modver) --nogpgcheck
+```
+3. Install pacemaker and drbd-utils
+```
+cd MQServer/Advanced/RDQM/PreReqs/el8/pacemaker-2
+dnf -y install *.rpm --nogpgcheck
+
+cd MQServer/Advanced/RDQM/PreReqs/el8/drbd-utils-9/
+dnf -y install *.rpm --nogpgcheck
+```
+4. Install policycoretutils-python-utils to set the correct security context for DRBD
+```
+dnf -y install policycoreutils-python-utils
+semanage permissive -a drbd_t
+```
+5. Configure `firewalld` on each host. We're going to add a range of ports for async communication between stacks as well as between nodes. We'll also add our listener ports for the queue listener services.
+```
+firewall-cmd --add-port=6996-7800/tcp --permanent
+firewall-cmd --add-port=1414-1514/tcp --permanent
+firewall-cmd --reload
+```
+6. Finally, install the RDQM package itself
+```
+dnf -y install ~/MQServer/Advanced/RDQM/MQSeriesRDQM-9.2.5-0.x86_64.rpm --nogpgcheck
+```
+
+
+
+
+
 
 ##  6. <a name='Security'></a>Security
 <b>MQIPT Security with TLS</b>
