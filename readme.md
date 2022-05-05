@@ -112,35 +112,46 @@ echo 'export PATH=$PATH:/opt/mqm/bin:/opt/mqm/samp/bin:' >> ~mqm/.bash_profile
 ```
 echo "%mqm ALL=(ALL) NOPASSWD: /opt/mqm/bin/crtmqm,/opt/mqm/bin/dltmqm,/opt/mqm/bin/rdqmadm,/opt/mqm/bin/rdqmstatus" >> /etc/sudoers
 ``` 
-4. Install lvm2 if it's not already there
+4. **OPTIONAL** - for ease of use and communication, you can create an ssh key for the `mqm` user and propagate it across the nodes in each stack. This isn't required, but it can mean you might only need to run some commands on the primary node in each stack and it will run the appropriate commands on each node behind the scenes.
+
+    On Node 1:
+```
+as mqm user
+[mqm@wdc1-mq1 ~]$ ssh-keygen -t rsa -f /home/mqm/.ssh/id_rsa -N ''
+[mqm@dal1-mq1 ~]$ ssh-keygen -t rsa -f /home/mqm/.ssh/id_rsa -N ''
+```
+
+Manually copy the public key to the `authorized_keys` file in `~/.ssh` for `mqm` user on each node in each stack.
+
+5. Install lvm2 if it's not already there
 ```
 dnf -y install lvm2
 ```
-5. Setup the volume group and logical volume for `/var/mqm`
+6. Setup the volume group and logical volume for `/var/mqm`
 ```
 pvcreate /dev/vdb
 vgcreate MQStorageVG /dev/vdb
 lvcreate -n MQStorageLV -l100%VG MQStorageVG
 ```
-6. Create the `/var/mqm` directory and format the storage volume
+7. Create the `/var/mqm` directory and format the storage volume
 ```
 mkdir /var/mqm
 mkfs.xfs /dev/MQStorageVG/MQStorageLV
 mount /dev/MQStorageVG/MQStorageLV /var/mqm
 ```
-7. Make sure `/var/mqm` is fully owned by the mqm user and that everything is setup in `/etc/fstab`
+8. Make sure `/var/mqm` is fully owned by the mqm user and that everything is setup in `/etc/fstab`
 ```
 chown -R mqm:mqm /var/mqm
 chmod 755 /var/mqm
 echo "/dev/MQStorageVG/MQStorageLV      /var/mqm        xfs     defaults        1 2" >> /etc/fstab
 ```
-8. Configure the storage volume for RDQM. **It's critical that the volume group is named `drbdpool`.**
+9. Configure the storage volume for RDQM. **It's critical that the volume group is named `drbdpool`.**
 ```
 parted -s -a optimal /dev/vde mklabel gpt 'mkpart primary ext4 1 -1'
 pvcreate /dev/vde1
 vgcreate drbdpool /dev/vde1
 ```
-9. Add the following settings to `/etc/sysctl.conf`
+10. Add the following settings to `/etc/sysctl.conf`
 ```
 kernel.shmmni = 4096
 kernel.shmall = 2097152
@@ -150,14 +161,14 @@ fs.file-max = 524288
 
 sysctl -p
 ```
-10. Set the ulimit for the mqm user by adding the following to `/etc/security/limits.conf`
+11. Set the ulimit for the mqm user by adding the following to `/etc/security/limits.conf`
 ```
 # For MQM User
 mqm       hard  nofile     10240
 mqm       soft  nofile     10240
 ```
 
-#### Installing MQ
+### Installing MQ
 
 This requires you to go to the following link and retrieving IBM MQ Advanced developer version 9.2.5:
 
@@ -225,10 +236,37 @@ firewall-cmd --reload
 dnf -y install ~/MQServer/Advanced/RDQM/MQSeriesRDQM-9.2.5-0.x86_64.rpm --nogpgcheck
 ```
 
+### **Creating A Disaster Recovery Queue**
 
+Now we are at the meat and potatoes. We're going to cover the steps to create a DR queue that is async replicated between regions. Let's get started.
 
+Order is everything when it comes to creating a DR queue. The creation command is always run on the last node first and first node last.
 
+#### **Creating DRHAQM1 With Primary in DC**
 
+```
+WDC region
+[mqm@wdc3-mq1 ~]$ sudo /opt/mqm/bin/crtmqm -sxs -rr p -rl 10.241.0.4,10.241.64.4,10.241.128.4 -ri 10.240.0.4,10.240.64.4,10.240.128.4 -rp 7001 -fs 3072M DRHAQM1
+[mqm@wdc2-mq1 ~]$ sudo /opt/mqm/bin/crtmqm -sxs -rr p -rl 10.241.0.4,10.241.64.4,10.241.128.4 -ri 10.240.0.4,10.240.64.4,10.240.128.4 -rp 7001 -fs 3072M DRHAQM1
+[mqm@wdc1-mq1 ~]$ sudo /opt/mqm/bin/crtmqm -sx -rr p -p 1501 -rl 10.241.0.4,10.241.64.4,10.241.128.4 -ri 10.240.0.4,10.240.64.4,10.240.128.4 -rp 7001 -fs 3072M DRHAQM1 # Primary node in the stack
+
+DAL region
+[mqm@ceng-dal3-mq1 ~]$ sudo /opt/mqm/bin/crtmqm -sxs -rr s -ri 10.241.0.4,10.241.64.4,10.241.128.4 -rl 10.240.0.4,10.240.64.4,10.240.128.4 -rp 7001 -fs 3072M DRHAQM1
+[mqm@ceng-dal2-mq1 ~]$ sudo /opt/mqm/bin/crtmqm -sxs -rr s -ri 10.241.0.4,10.241.64.4,10.241.128.4 -rl 10.240.0.4,10.240.64.4,10.240.128.4 -rp 7001 -fs 3072M DRHAQM1
+[mqm@ceng-dal1-mq1 ~]$ sudo /opt/mqm/bin/crtmqm -sx -rr s -ri 10.241.0.4,10.241.64.4,10.241.128.4 -rl 10.240.0.4,10.240.64.4,10.240.128.4 -rp 7001 -fs 3072M DRHAQM1 # Primary node in the stack
+```
+
+Let's break down these commands:
+
+**`crtmqm`** - command to actually create the queues
+
+- **`-sxs`** - Replicated data HA secondary queue manager. This is run only on secondary or standby nodes when creating the queue.
+- **`-sx`** - Replicated data HA Primary queue manager. This is run only on a primary node where you want the queue to live.
+- **`-rr [p,s]`** - This is region specific. When you create your DR Queue, you would use "p" for the region you want to be DR Primary and "s" for the region you want to be standby. If you accidentally use "p" for both regions, your clusters will not talk to each other.
+- **`-rl`**  `10.241.0.4,10.241.64.4,10.241.128.4` - Specifies the local ip address(es) to be used for DR replication of this queue manager. Basically your local region nodes go here.
+- **`-ri`**  `10.240.0.4,10.240.64.4,10.240.128.4` - Specifies the IP address of the interface used for replication on the server hosting the secondary instance of the queue manager. Basically your remote region's nodes. 
+- **`-rp 7001`** - Specifies the port to use for DR replication. We're using port 7001 in this example.
+- **`-fs 3072M`** - Specifies the size of the filesystem to create for the queue manager - that is, the size of the logical volume which is created in the drbdpool volume group. Another logical volume of that size is also created, to support the reverting to snapshot operation, so the total storage for the DR RDQM is just over twice that specified here.
 
 ##  6. <a name='Security'></a>Security
 <b>MQIPT Security with TLS</b>
