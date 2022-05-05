@@ -235,6 +235,76 @@ firewall-cmd --reload
 ```
 dnf -y install ~/MQServer/Advanced/RDQM/MQSeriesRDQM-9.2.5-0.x86_64.rpm --nogpgcheck
 ```
+7. Edit `/var/mqm/rdqm.ini` and add in the hosts for that stack. This will be different per region but the `Name` field needs to be added to the default file and it **must** match the hostname of each node:
+
+`/var/mqm/rdqm.ini` in WDC
+
+```
+Node:
+  Name=wdc1-mq1
+  HA_Replication=10.241.0.4
+#  HA_Primary=
+#  HA_Alternate=
+#  DR_Replication=
+Node:
+  Name=wdc2-mq1
+  HA_Replication=10.241.64.4
+#  HA_Primary=
+#  HA_Alternate=
+#  DR_Replication=
+Node:
+  Name=wdc3-mq1
+  HA_Replication=10.241.128.4
+#  HA_Primary=
+#  HA_Alternate=
+#  DR_Replication=
+
+#DRGroup:
+#  Name=
+#  DR_Replication=
+#  DR_Replication=
+#  DR_Replication=
+```
+`/var/mqm/rdqm.ini` in DAL
+```
+Node:
+  Name=dal1-mq1
+  HA_Replication=10.240.0.4
+#  HA_Primary=
+#  HA_Alternate=
+#  DR_Replication=
+Node:
+  Name=dal2-mq1
+  HA_Replication=10.240.64.4
+#  HA_Primary=
+#  HA_Alternate=
+#  DR_Replication=
+Node:
+  Name=dal3-mq1
+  HA_Replication=10.240.128.4
+#  HA_Primary=
+#  HA_Alternate=
+#  DR_Replication=
+
+#DRGroup:
+#  Name=
+#  DR_Replication=
+#  DR_Replication=
+#  DR_Replication=
+
+```
+
+8. Run the following on the primary node in each region:
+
+```
+/opt/mqm/bin/rdqmadm -c
+```
+If the ssh key was configured as mentioned above, the mqm user should be able to run this command on each node in the background. Otherwise the STDOUT returned will tell you wnat nodes still need to have it run.
+
+9. Verify we're all online with:
+```
+rdqmstatus -n
+```
 
 ### **Creating A Disaster Recovery Queue**
 
