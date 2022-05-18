@@ -1,20 +1,15 @@
-name: "Bug Report"
-fields:
-- type: "textarea"
-  attributes:
-    label: "Description"
-    description: "Give a concise description of the problem"
-  validations:
-    required: true
-- type: "textarea"
-  attributes:
-    label: "Expected outcome vs. Actual Outcome"
-    description: "What did you expect to happen and what ended up happening?"
-  validations:
-    required: true
-- type: "textarea"
-  attributes:
-    label: "Workaround You Used"
-    description: "Were you able to work around the problem? If so, how?"
-  validations:
-    required: false
+name: New Issue
+description: Use this template to report any issue
+body:
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Issue Type
+      description: What type of issue would you like to report?
+      multiple: false
+      options:
+        - Bug
+        - Build/Install
+        - Feature Request
+        - Documentation Feature Request
+        - Documentation Bug
