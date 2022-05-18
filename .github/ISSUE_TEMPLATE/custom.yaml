@@ -1,4 +1,4 @@
-name: New Issue
+name: Report an Issue
 description: Use this template to report any issue
 body:
   - type: dropdown
