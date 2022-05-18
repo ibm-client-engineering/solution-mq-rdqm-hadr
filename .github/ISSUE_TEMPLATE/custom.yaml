@@ -10,7 +10,6 @@ body:
       options:
         - Bug
         - Build/Install
-        - Feature Request
         - Documentation Feature Request
         - Documentation Bug
   - type: "textarea"
