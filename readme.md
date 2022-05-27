@@ -545,7 +545,7 @@ In this implementation we are creating two `[route]` entries for the two differe
 - Start MQIPT 
 
 ```
-mqipt /opt/mqipt/installation1/mqipt/configs -n DRHAMQ
+mqipt /opt/mqipt/installation1/mqipt -n HAMQ
 ```
 
 You should see the following output
@@ -567,8 +567,85 @@ MQCPI034 ....ourlb.appdomain.cloud(1501)
 MQCPI035 ....using MQ protocol
 MQCPI078 Route 1501 ready for connection requests
 ```
+Note that this initial implementation of MQIPT does not account for any mTLS or handshaking. In this mode, it is simply proxying traffic to the MQ servers (through our loadbalancers).
 
-Note that this implementation of MQIPT does not account for any mTLS or handshaking. In this mode, it is simply proxying traffic to the MQ servers (through our loadbalancers).
+### Enable MQIPT as a system service
+
+*This assumes you are running on Red Hat >= 7.x, CentOS >= 7.x, or Ubuntu >= 16.x*
+
+Create a new systemd service file called `/etc/systemd/system/mqipt.service`
+```
+[Unit]
+Description=MQIPT Service for IBM MQ
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/bin/bash -c "/opt/mqipt/installation1/mqipt/bin/mqipt /opt/mqipt/installation1/mqipt/configs -n HAMQ"
+ExecStop=/bin/bash -c "/opt/mqipt/installation1/mqipt/bin/mqiptAdmin -stop -n HAMQ"
+
+[Install]
+WantedBy=multi-user.target
+```
+In the file we created above, we've named our MQIPT instance as **HAMQ**. Logs can be viewed using the `systemctl` command or the `journalctl` command.
+
+Refresh systemd with `systemctl daemon-reload`
+
+Now MQIPT can be enabled to start on boot
+
+```
+systemctl enable mqipt
+```
+This will install the service file for mqipt to `/etc/init.d` which can be controlled using the `systemctl` command.
+```
+systemctl start mqipt
+```
+Make sure to enable this at boot time
+```
+systemctl enable mqipt
+```
+### **Templating the service file for multiple MQIPT instances**
+
+MQIPT has the ability to run with multiple instances and to control that with systemd we can simply create a config directory for each instance we want to control and run each with separate systemd templates. For example, we want to create an instance of MQIPT and name it `HAMQ`:
+
+```
+mkdir /opt/mqipt/installation1/mqipt/HAMQ
+```
+Move our existing `mqipt.conf` to that directory
+```
+mv /opt/mqipt/installation1/mqipt/configs/mqipt.conf /opt/mqipt/installation1/mqipt/HAMQ
+```
+Create a systemd service template as `/etc/systemd/system/mqipt-@.service`
+```
+touch /etc/systemd/system/mqipt-\@.service
+vi /etc/systemd/system/mqipt-\@.service
+```
+Insert the following into the new service file
+```
+[Unit]
+Description=MQIPT Service for IBM MQ %i Instance
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/bin/bash -c "/opt/mqipt/installation1/mqipt/bin/mqipt /opt/mqipt/installation1/mqipt/%i -n %i"
+ExecStop=/bin/bash -c "/opt/mqipt/installation1/mqipt/bin/mqiptAdmin -stop -n %i"
+
+[Install]
+WantedBy=multi-user.target
+```
+Now this service template can be enabled for our `HAMQ` instance with the following:
+
+```
+systemctl daemon-reload
+systemctl enable mqipt-@HAMQ.service
+systemctl start mqipt-@HAMQ.service
+```
+Now if we want to run multiple instances of MQIPT that bind to different ports, we can do so with separate instance names that are controllable via systemd by simply creating the instance directory in `/opt/mqipt/installation1/mqipt`, putting a unique `mqipt.conf` in that directory, and then enabling it as a service with systemctl.
+
+**It's important to note that your instances can't be on the same ports.**
 
 ##  6. <a name='Security'></a>Security
 <b>MQIPT Security with TLS</b>
