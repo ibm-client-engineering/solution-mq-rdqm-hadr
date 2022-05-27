@@ -582,6 +582,68 @@ MQIPT accepts a TLS from a queue manager or a client, the certificate is validat
 
 <b>Advanced Message Security ( AMS )</b> expands IBM MQ security services to provide data signing and encryption at the message level. The expanded services guarantees that message data has not been modified between when it is originally placed on a queue and when it is retrieved. In addition, AMS verifies that a sender of message data is authorized to place signed messages on a target queue.
 
+### MQIPT Security with TLS
+<b>Creating the key ring file</b>
+- Use the command line interface (CLI) mqiptKeycmd located in the mqipt/bin directory
+```
+# mqiptKeycmd -keydb -create -db TLS-POC-DB.pfx -pw SOMEPASS -type pkcs12
+```
+- Create a self-signed personal certificate for testing purposes
+```
+# ./mqiptKeycmd -cert -create -db TLS-POC-DB.pfx -pw SOMEPASS -type pkcs12
+            -label label -dn "CN=host1.securedomain.com,OU=SomeName,O=Example,C=US"
+            -sig_alg SHA256WithRSA -size 2048
+```
+- Encrypt the key ring password
+```
+	       # ./mqiptPW SOMEPASS filename.pwd
+```
+•	Modify the mqipt.conf file to add the SSL parameters
+```
+[route]
+Name=TLSDRHAQM1
+Active=false
+ListenerPort=1401
+Destination=3bdf30c3-us-east.lb.appdomain.cloud
+DestinationPort=1401
+SSLServer=true
+SSLServerCipherSuites=SSL_RSA_WITH_AES_256_CBC_SHA256
+SSLServerKeyRing=/opt/mqipt/installation1/mqipt/samples/ssl/TLS-POC-DB.pfx
+SSLServerKeyRingPW=/opt/mqipt/installation1/mqipt/samples/ssl/TLS-POC-DB.pwd
+SSLServerDN_O=*
+SSLServerDN_CN=*.securedoamin.com
+SSLServerAskClientAuth=true
+
+[route]
+Name=TLSDRHAQM2
+Active=false
+ListenerPort=1402
+Destination=3bdf30c3-us-east.lb.appdomain.cloud
+DestinationPort=1402
+SSLServer=true
+SSLServerCipherSuites=SSL_RSA_WITH_AES_256_CBC_SHA256
+SSLServerKeyRing=/opt/mqipt/installation1/mqipt/samples/ssl/TLS-POC-DB.pfx
+SSLServerKeyRingPW=/opt/mqipt/installation1/mqipt/samples/ssl/TLS-POC-DB.pwd
+SSLServerDN_O=*
+SSLServerDN_CN=*.securedoamin.com
+SSLServerAskClientAuth=true
+```
+
+Restart MQIPT
+
+```
+ps -xa | grep mqipt 
+```
+- find the PID form the output
+```
+kill -9 PID
+```
+Start MQIPT
+```
+mqipt /opt/mqipt/installation1/mqipt/configs -n DRHAMQ
+```
+
+
 Referance Links:
 
 https://www.ibm.com/docs/en/ibm-mq/9.0?topic=tls-configuring-security-mq
