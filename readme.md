@@ -632,6 +632,7 @@ After=network-online.target
 Type=exec
 ExecStart=/bin/bash -c "/opt/mqipt/installation1/mqipt/bin/mqipt /opt/mqipt/installation1/mqipt/%i -n %i"
 ExecStop=/bin/bash -c "/opt/mqipt/installation1/mqipt/bin/mqiptAdmin -stop -n %i"
+ExecReload=/bin/bash -c "/opt/mqipt/installation1/mqipt/bin/mqiptAdmin -refresh -n %i"
 
 [Install]
 WantedBy=multi-user.target
@@ -644,6 +645,11 @@ systemctl enable mqipt-@HAMQ.service
 systemctl start mqipt-@HAMQ.service
 ```
 Now if we want to run multiple instances of MQIPT that bind to different ports, we can do so with separate instance names that are controllable via systemd by simply creating the instance directory in `/opt/mqipt/installation1/mqipt`, putting a unique `mqipt.conf` in that directory, and then enabling it as a service with systemctl.
+
+We can also update our configs and refresh the instance without restarting mqipt with
+```
+systemctl reload mqipt-@HAMQ.service
+```
 
 **It's important to note that your instances can't be on the same ports.**
 
@@ -737,5 +743,481 @@ https://www.ibm.com/docs/en/ibm-mq/9.0?topic=mechanisms-message-security-in-mq
 ### Testing Tools
 -  [MQ Toolkit for Mac][https://developer.ibm.com/tutorials/mq-macos-dev/] comes with sample client programs to test. 
 
+## Failover testing for MQ HADR and RDQM
+We have two avenues for testing failover:
+1. Local failover between nodes in each cluster
+	1. Loadbalancer lives in each region and handles the traffic failover between nodes
+2. Regional failover between regions for disaster recovery
+	1. MQIPT currently runs on our bastion host and provides proxied connections between regions. This does not support failover per se but does support converged proxying between sites.
+
+### Setup
+Our two regions are defined thusly:
+- DC
+	- DRHAQM1 - queue manager with primary cluster in DC
+	- DRHAQM2 - standby queue manager for DRHAQM2
+- Dallas
+	- DRHAQM2 - queue manager with primary cluster in Dallas
+	- DRHAQM1 - standby queue manager for DRHAQM1
+
+Each cluster is made up of three nodes:
+
+DC
+- wdc1-mq1
+- wdc2-mq1
+- wdc3-mq1
+
+Dallas
+- dal1-mq1
+- dal2-mq1
+- dal3-mq1
+
+We create the following queues on each cluster. For the purposes of this test, we aren't going to enable any security.
+
+On wdc1-mq1
+
+```
+runmqsc DRHAQM1
+ALTER QMGR CHLAUTH(DISABLED)
+ALTER QMGR CONNAUTH(' ')
+REFRESH SECURITY (*)
+DEFINE CHANNEL(DRHAMQ1.MQIPT) CHLTYPE(SVRCONN)
+DEFINE QLOCAL(MQIPT.LOCAL.QUEUE)
+QUIT
+
+```
+
+On dal1-mq1
+
+```
+runmqsc DRHAQM1
+ALTER QMGR CHLAUTH(DISABLED)
+ALTER QMGR CONNAUTH(' ')
+REFRESH SECURITY (*)
+DEFINE CHANNEL(DRHAMQ2.MQIPT) CHLTYPE(SVRCONN)
+DEFINE QLOCAL(MQIPT.LOCAL.QUEUE)
+QUIT
+```
+	
+We configure our settings on our MQIPT host
+
+```
+[route]
+Name=DRHAQM1
+Active=true
+ListenerPort=1501
+Destination=3bdf30c3-us-east.lb.appdomain.cloud
+DestinationPort=1501
+
+[route]
+Name=DRHAQM2
+Active=true
+ListenerPort=1502
+Destination=e8deec77-us-south.lb.appdomain.cloud
+DestinationPort=1502
+```
+
+The destination addresses are the load balancer for each region. This will move the connections between each node during failover.
+
+We create a user that is part of the `mqm` group on each node. This is the user we must connect as when we run the tests.
+
+### Testing with persistent messages with syncpoint
+
+Relevant github link:
+https://github.com/ibm-messaging/mq-rdqm
+
+For these utilities to work you must install `MQSeriesSDK-9.2.5-0.x86_64.rpm` which is part of the MQ client/server installation package `mqadv_dev925_linux_x86-64.tar.gz`
+
+**LINUX**
+Clone the above repo to your home directory
+
+```
+git clone https://github.com/ibm-messaging/mq-rdqm.git
+```
+
+Install the relevant build tools
+
+```
+dnf -y install make cmake gcc
+```
+
+Go to the samples directory:
+
+```
+cd mq-rdqm/samples/C/linux
+```
+
+Update the `Makefile` to point to the `/opt/mqm` directory since that's where all of MQ's libs are installed.
+
+```
+MQDIR=/opt/mqm
+```
+
+Build the `rdqmget` and `rdqmput` binaries
+
+```
+[kramerro@wdc-mq-client linux]$ make all
+gcc -m64 -I /opt/mqm/inc -c ../complete.c
+gcc -m64 -I /opt/mqm/inc -c ../connection.c
+gcc -m64 -I /opt/mqm/inc -c ../globals.c
+gcc -m64 -I /opt/mqm/inc -c ../log.c
+gcc -m64 -I /opt/mqm/inc -c ../options.c
+gcc -m64 -I /opt/mqm/inc -o rdqmget ../rdqmget.c complete.o connection.o globals.o log.o options.o -L /opt/mqm/lib64 -l mqic_r -Wl,-rpath=/opt/mqm/lib64 -Wl,-rpath=/usr/lib64
+gcc -m64 -I /opt/mqm/inc -o rdqmput ../rdqmput.c complete.o connection.o globals.o log.o options.o -L /opt/mqm/lib64 -l mqic_r -Wl,-rpath=/opt/mqm/lib64 -Wl,-rpath=/usr/lib64
+```
+
+Export the MQSERVER env var and kick off the `rdqmget` command. The `52.116.121.144` is our MQIPT server.
+
+```
+export MQSERVER="DRHAMQ1.MQIPT/TCP/52.116.121.144(1501)"
+```
+
+The syntax is the same as the default sample application
+```
+<sample> [options] <queue manager name> <queue name>
+
+./rdqmput -b10 -m5 -v 1 DRHAQM1 MQIPT.LOCAL.QUEUE
+```
+
+The default number of batches is 20 and the default batch size is 10 so by default rdqmput will put a total of 200 messages and rdqmget will get a total of 200 messages.
+
+The above options will create 10 batches of 5 messages each. So we should see 50 messages when rdqmget drains the queue.
+
+```
+Connected to queue manager DRHAQM1
+Opened queue MQIPT.LOCAL.QUEUE
+Batch 1 put successfully, committing...
+Batch 1 committed successfully
+Batch 2 put successfully, committing...
+Batch 2 committed successfully
+Batch 3 put successfully, committing...
+Batch 3 committed successfully
+Batch 4 put successfully, committing...
+Batch 4 committed successfully
+Batch 5 put successfully, committing...
+Batch 5 committed successfully
+Batch 6 put successfully, committing...
+Batch 6 committed successfully
+Batch 7 put successfully, committing...
+Batch 7 committed successfully
+Batch 8 put successfully, committing...
+Batch 8 committed successfully
+Batch 9 put successfully, committing...
+Batch 9 committed successfully
+Batch 10 put successfully, committing...
+Batch 10 committed successfully
+Completed
+
+```
+
+Now we retrieve them
+```
+[kramerro@wdc-mq-client linux]$ ./rdqmget -b10 -m5 -v1 DRHAQM1 MQIPT.LOCAL.QUEUE
+Connected to queue manager DRHAQM1
+Opened queue MQIPT.LOCAL.QUEUE
+Batch 1 got successfully, committing...
+Batch 1 committed successfully
+Batch 2 got successfully, committing...
+Batch 2 committed successfully
+Batch 3 got successfully, committing...
+Batch 3 committed successfully
+Batch 4 got successfully, committing...
+Batch 4 committed successfully
+Batch 5 got successfully, committing...
+Batch 5 committed successfully
+Batch 6 got successfully, committing...
+Batch 6 committed successfully
+Batch 7 got successfully, committing...
+Batch 7 committed successfully
+Batch 8 got successfully, committing...
+Batch 8 committed successfully
+Batch 9 got successfully, committing...
+Batch 9 committed successfully
+Batch 10 got successfully, committing...
+Batch 10 committed successfully
+Completed
+```
+
+And the queue should be empty.
+
+Next lets try a failover in the WDC cluster. FIrst we'll load up the queue with 10 batches of 5 messages each.
+
+```
+[kramerro@wdc-mq-client linux]$ ./rdqmput -b10 -m5 -v1 DRHAQM1 MQIPT.LOCAL.QUEUE
+Connected to queue manager DRHAQM1
+Opened queue MQIPT.LOCAL.QUEUE
+Batch 1 put successfully, committing...
+Batch 1 committed successfully
+Batch 2 put successfully, committing...
+Batch 2 committed successfully
+Batch 3 put successfully, committing...
+Batch 3 committed successfully
+Batch 4 put successfully, committing...
+Batch 4 committed successfully
+Batch 5 put successfully, committing...
+Batch 5 committed successfully
+Batch 6 put successfully, committing...
+Batch 6 committed successfully
+Batch 7 put successfully, committing...
+Batch 7 committed successfully
+Batch 8 put successfully, committing...
+Batch 8 committed successfully
+Batch 9 put successfully, committing...
+Batch 9 committed successfully
+Batch 10 put successfully, committing...
+Batch 10 committed successfully
+Completed
+```
+
+Now lets failover the cluster to node2.
+
+```
+[root@dtcc-wdc1-mq1 ~]# rdqmadm -s
+The replicated data node 'dtcc-wdc1-mq1' has been suspended.
+
+```
+
+This puts the primary node into standby node and shifts the queue over to node2. This can be verified with the following command on node2.
+
+```
+[root@dtcc-wdc2-mq1 ~]# /opt/mqm/bin/dspmq -a -x -s
+QMNAME(DRHAQM1)                                           STATUS(Running)
+    INSTANCE(dtcc-wdc2-mq1) MODE(Active)
+
+```
+
+The load balancer should have shifted over the connection as well. So now from our client going through MQIPT, let's see if we can retrieve the messages we put in.
+
+```
+[kramerro@wdc-mq-client linux]$ ./rdqmget -b10 -m5 -v1 DRHAQM1 MQIPT.LOCAL.QUEUE
+Connected to queue manager DRHAQM1
+Opened queue MQIPT.LOCAL.QUEUE
+Batch 1 got successfully, committing...
+Batch 1 committed successfully
+Batch 2 got successfully, committing...
+Batch 2 committed successfully
+Batch 3 got successfully, committing...
+Batch 3 committed successfully
+Batch 4 got successfully, committing...
+Batch 4 committed successfully
+Batch 5 got successfully, committing...
+Batch 5 committed successfully
+Batch 6 got successfully, committing...
+Batch 6 committed successfully
+Batch 7 got successfully, committing...
+Batch 7 committed successfully
+Batch 8 got successfully, committing...
+Batch 8 committed successfully
+Batch 9 got successfully, committing...
+Batch 9 committed successfully
+Batch 10 got successfully, committing...
+Batch 10 committed successfully
+Completed
+```
+
+And there they are. Let's push some messages back into the queue and fail back to node1.
+
+```
+[kramerro@wdc-mq-client linux]$ ./rdqmput -b10 -m5 -v1 DRHAQM1 MQIPT.LOCAL.QUEUE
+Connected to queue manager DRHAQM1
+Opened queue MQIPT.LOCAL.QUEUE
+Batch 1 put successfully, committing...
+Batch 1 committed successfully
+Batch 2 put successfully, committing...
+Batch 2 committed successfully
+Batch 3 put successfully, committing...
+Batch 3 committed successfully
+Batch 4 put successfully, committing...
+Batch 4 committed successfully
+Batch 5 put successfully, committing...
+Batch 5 committed successfully
+Batch 6 put successfully, committing...
+Batch 6 committed successfully
+Batch 7 put successfully, committing...
+Batch 7 committed successfully
+Batch 8 put successfully, committing...
+Batch 8 committed successfully
+Batch 9 put successfully, committing...
+Batch 9 committed successfully
+Batch 10 put successfully, committing...
+Batch 10 committed successfully
+Completed
+```
+
+Now fail things back over
+
+```
+[root@dtcc-wdc1-mq1 ~]# rdqmadm -r
+The replicated data node 'dtcc-wdc1-mq1' has been resumed.
+```
+
+We should see the queue back on node1 now.
+
+```
+[root@dtcc-wdc1-mq1 ~]# /opt/mqm/bin/dspmq -a -x -s
+QMNAME(DRHAQM1)                                           STATUS(Running)
+    INSTANCE(dtcc-wdc1-mq1) MODE(Active)
+```
+
+Now from our client, let's get these messages.
+
+```
+[kramerro@wdc-mq-client linux]$ ./rdqmget -b10 -m5 -v1 DRHAQM1 MQIPT.LOCAL.QUEUE
+Connected to queue manager DRHAQM1
+Opened queue MQIPT.LOCAL.QUEUE
+Batch 1 got successfully, committing...
+Batch 1 committed successfully
+Batch 2 got successfully, committing...
+Batch 2 committed successfully
+Batch 3 got successfully, committing...
+Batch 3 committed successfully
+Batch 4 got successfully, committing...
+Batch 4 committed successfully
+Batch 5 got successfully, committing...
+Batch 5 committed successfully
+Batch 6 got successfully, committing...
+Batch 6 committed successfully
+Batch 7 got successfully, committing...
+Batch 7 committed successfully
+Batch 8 got successfully, committing...
+Batch 8 committed successfully
+Batch 9 got successfully, committing...
+Batch 9 committed successfully
+Batch 10 got successfully, committing...
+Batch 10 committed successfully
+Completed
+```
+
+And there they are.
+
+### Regional failover testing
+First. let's write some messages to the queue. We'll export the MQSERVER env var still pointing to the MQIPT host and then write those messages.
+
+```
+[kramerro@wdc-mq-client linux]$ export MQSERVER="DRHAMQ1.MQIPT/TCP/52.116.121.144(1501)"
+[kramerro@wdc-mq-client linux]$ ./rdqmput -b10 -m5 -v1 DRHAQM1 MQIPT.LOCAL.QUEUE
+Connected to queue manager DRHAQM1
+Opened queue MQIPT.LOCAL.QUEUE
+Batch 1 put successfully, committing...
+Batch 1 committed successfully
+Batch 2 put successfully, committing...
+Batch 2 committed successfully
+Batch 3 put successfully, committing...
+Batch 3 committed successfully
+Batch 4 put successfully, committing...
+Batch 4 committed successfully
+Batch 5 put successfully, committing...
+Batch 5 committed successfully
+Batch 6 put successfully, committing...
+Batch 6 committed successfully
+Batch 7 put successfully, committing...
+Batch 7 committed successfully
+Batch 8 put successfully, committing...
+Batch 8 committed successfully
+Batch 9 put successfully, committing...
+Batch 9 committed successfully
+Batch 10 put successfully, committing...
+Batch 10 committed successfully
+Completed
+
+
+```
+
+Now lets failover that queue manager to Dallas.
+
+```
+[root@dtcc-wdc1-mq1 ~]# rdqmdr -s -m DRHAQM1
+Queue manager 'DRHAQM1' has been made the DR secondary on this node.
+```
+
+And in Dallas, we have to tell node 1 that it's now primary for that queue manager
+
+```
+[root@ceng-dal1-mq1 ~]# rdqmdr -p -m DRHAQM1
+Queue manager 'DRHAQM1' has been made the DR primary on this node.
+```
+
+Now we should see on node 1 in Dallas that we are now primary for that queue manager
+
+```
+[root@ceng-dal1-mq1 ~]# /opt/mqm/bin/dspmq -a -x -s
+QMNAME(DRHAQM1)                                           STATUS(Running)
+    INSTANCE(ceng-dal1-mq1) MODE(Active)
+```
+
+Now let's modify MQIPT to point to the Dallas cluster for this queue manager. Edit `/opt/mqipt/installation1/mqipt/HAMQ/mqipt.conf`
+
+```
+[route]
+Name=DRHAQM1
+Active=true
+ListenerPort=1501
+Destination=3bdf30c3-us-east.lb.appdomain.cloud
+DestinationPort=1501
+
+[route]
+Name=DRHAQM2
+Active=true
+ListenerPort=1502
+Destination=e8deec77-us-south.lb.appdomain.cloud
+DestinationPort=1502
+```
+
+We are going to change the Destination for DRHAMQ1 to point to the load balancer in Dallas. 
+
+```
+[route]
+Name=DRHAQM1
+Active=true
+ListenerPort=1501
+Destination=e8deec77-us-south.lb.appdomain.cloud
+DestinationPort=1501
+
+[route]
+Name=DRHAQM2
+Active=true
+ListenerPort=1502
+Destination=e8deec77-us-south.lb.appdomain.cloud
+DestinationPort=1502
+```
+
+Now refresh mqipt with the following command. We have named this MQIPT instance to HAMQ:
+
+```
+root@wdc-bastion:/opt/mqipt/installation1/mqipt/HAMQ# /opt/mqipt/installation1/mqipt/bin/mqiptAdmin -refresh -n HAMQ
+June 2, 2022 7:26:11 PM UTC
+MQCAI105 Sending REFRESH command to MQIPT instance with name HAMQ
+MQCAI025 MQIPT HAMQ has been refreshed
+```
+
+Now from our client, let's see if the messages are there.
+
+```
+[kramerro@wdc-mq-client linux]$ ./rdqmget -b10 -m5 -v1 DRHAQM1 MQIPT.LOCAL.QUEUE
+Connected to queue manager DRHAQM1
+Opened queue MQIPT.LOCAL.QUEUE
+Batch 1 got successfully, committing...
+Batch 1 committed successfully
+Batch 2 got successfully, committing...
+Batch 2 committed successfully
+Batch 3 got successfully, committing...
+Batch 3 committed successfully
+Batch 4 got successfully, committing...
+Batch 4 committed successfully
+Batch 5 got successfully, committing...
+Batch 5 committed successfully
+Batch 6 got successfully, committing...
+Batch 6 committed successfully
+Batch 7 got successfully, committing...
+Batch 7 committed successfully
+Batch 8 got successfully, committing...
+Batch 8 committed successfully
+Batch 9 got successfully, committing...
+Batch 9 committed successfully
+Batch 10 got successfully, committing...
+Batch 10 committed successfully
+Completed
+```
+
+Everything looks good.
 
 # Architecture Decisions
