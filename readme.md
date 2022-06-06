@@ -971,17 +971,17 @@ Completed
 Now lets failover the cluster to node2.
 
 ```
-[root@dtcc-wdc1-mq1 ~]# rdqmadm -s
-The replicated data node 'dtcc-wdc1-mq1' has been suspended.
+[root@wdc1-mq1 ~]# rdqmadm -s
+The replicated data node 'wdc1-mq1' has been suspended.
 
 ```
 
 This puts the primary node into standby node and shifts the queue over to node2. This can be verified with the following command on node2.
 
 ```
-[root@dtcc-wdc2-mq1 ~]# /opt/mqm/bin/dspmq -a -x -s
+[root@wdc2-mq1 ~]# /opt/mqm/bin/dspmq -a -x -s
 QMNAME(DRHAQM1)                                           STATUS(Running)
-    INSTANCE(dtcc-wdc2-mq1) MODE(Active)
+    INSTANCE(wdc2-mq1) MODE(Active)
 
 ```
 
@@ -1046,16 +1046,16 @@ Completed
 Now fail things back over
 
 ```
-[root@dtcc-wdc1-mq1 ~]# rdqmadm -r
-The replicated data node 'dtcc-wdc1-mq1' has been resumed.
+[root@wdc1-mq1 ~]# rdqmadm -r
+The replicated data node 'wdc1-mq1' has been resumed.
 ```
 
 We should see the queue back on node1 now.
 
 ```
-[root@dtcc-wdc1-mq1 ~]# /opt/mqm/bin/dspmq -a -x -s
+[root@wdc1-mq1 ~]# /opt/mqm/bin/dspmq -a -x -s
 QMNAME(DRHAQM1)                                           STATUS(Running)
-    INSTANCE(dtcc-wdc1-mq1) MODE(Active)
+    INSTANCE(wdc1-mq1) MODE(Active)
 ```
 
 Now from our client, let's get these messages.
@@ -1125,7 +1125,7 @@ Completed
 Now lets failover that queue manager to Dallas.
 
 ```
-[root@dtcc-wdc1-mq1 ~]# rdqmdr -s -m DRHAQM1
+[root@wdc1-mq1 ~]# rdqmdr -s -m DRHAQM1
 Queue manager 'DRHAQM1' has been made the DR secondary on this node.
 ```
 
