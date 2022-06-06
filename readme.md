@@ -865,10 +865,10 @@ gcc -m64 -I /opt/mqm/inc -o rdqmget ../rdqmget.c complete.o connection.o globals
 gcc -m64 -I /opt/mqm/inc -o rdqmput ../rdqmput.c complete.o connection.o globals.o log.o options.o -L /opt/mqm/lib64 -l mqic_r -Wl,-rpath=/opt/mqm/lib64 -Wl,-rpath=/usr/lib64
 ```
 
-Export the MQSERVER env var and kick off the `rdqmget` command. The `52.116.121.144` is our MQIPT server.
+Export the MQSERVER env var and kick off the `rdqmget` command. The `<mqipt adress>` is our MQIPT server.
 
 ```
-export MQSERVER="DRHAMQ1.MQIPT/TCP/52.116.121.144(1501)"
+export MQSERVER="DRHAMQ1.MQIPT/TCP/<mqipt address>(1501)"
 ```
 
 The syntax is the same as the default sample application
@@ -1093,7 +1093,7 @@ And there they are.
 First. let's write some messages to the queue. We'll export the MQSERVER env var still pointing to the MQIPT host and then write those messages.
 
 ```
-[kramerro@wdc-mq-client linux]$ export MQSERVER="DRHAMQ1.MQIPT/TCP/52.116.121.144(1501)"
+[kramerro@wdc-mq-client linux]$ export MQSERVER="DRHAMQ1.MQIPT/TCP/<mqipt address>(1501)"
 [kramerro@wdc-mq-client linux]$ ./rdqmput -b10 -m5 -v1 DRHAQM1 MQIPT.LOCAL.QUEUE
 Connected to queue manager DRHAQM1
 Opened queue MQIPT.LOCAL.QUEUE
