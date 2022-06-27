@@ -705,7 +705,7 @@ crtmqm -sx -rr s -rl 10.240.0.4,10.240.64.4,10.240.128.4 -ri 10.241.0.4,10.241.6
 ```
 Now wash, rinse, repeat and create the queue with the `-rr` option set as `s` on the DR queue in Dallas:
 
-`mq1-dal3`
+`dal3-mq1`
 ```
 [mqm@dal3-mq1 ~]$ sudo /opt/mqm/bin/crtmqm -sxs -rr s -ri 10.241.0.4,10.241.64.4,10.241.128.4 -rl 10.240.0.4,10.240.64.4,10.240.128.4 -rp 7005 -fs 3072M SSLDRHAQM1
 Creating replicated data queue manager configuration.
@@ -1049,6 +1049,120 @@ REFRESH SECURITY TYPE(AUTHSERV)
 ```
 We'll set this so the mqadmin user can authenticate in
 
+Let's configure MQIPT for SSLProxy
+
+On our MQIPT host, edit the `/opt/mqipt/installation1/mqipt/HAMQ/mqipt.conf` file and add the route entry. 
+
+```
+[route]
+Name=SSLDRHAQM1
+Active=true
+ListenerPort=1503
+Destination=3bdf30c3-us-east.lb.appdomain.cloud
+DestinationPort=1503
+SSLProxyMode=true
+```
+
+Reload the mqipt config for this instance
+```
+systemctl reload mqipt-@HAMQ.service
+```
+
+Now let's create a client self-signed certificate. Over on our client now:
+
+```
+[kramerro@wdc-mq-client keys]$ mkdir ~/keys
+[kramerro@wdc-mq-client keys]$ cd ~/keys
+[kramerro@wdc-mq-client keys]$ /opt/mqm/bin/runmqakm -keydb -create -db mq_cloud_keys -pw 'p@ssw0rd' -type cms -stash
+```
+
+Create a personal cert on the client
+
+```
+[kramerro@wdc-mq-client keys]$ /opt/mqm/bin/runmqakm -cert -create \
+-db /home/kramerro/keys/mq_cloud_keys \
+-pw 'p@ssw0rd' \
+-label personalcertlabel \
+-dn "cn=kramerro,O=IBM,C=US,OU=SSL For MQ,ST=MA" \
+-size 2048 \
+-x509version 3 \
+-expire 7300 \
+-sig_alg SHA256WithRSA \
+-type kdb
+```
+
+This keyfile **MUST also have a `.kdb` suffix but not referenced with it.**
+
+You can verify the new cert with this:
+
+```
+[kramerro@wdc-mq-client keys]$ /opt/mqm/bin/runmqakm -cert -list -db /home/kramerro/keys/mq_cloud_keys.kdb -pw 'p@ssw0rd'
+
+Certificates found
+* default, - personal, ! trusted, # secret key
+-	personalcertlabel
+```
+
+On the MQ Server host, extract the personal certificate from the server key repository and add it to the client repository.
+
+```
+[mqm@wdc1-mq1 ssl]$ runmqakm -cert -extract -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/defaultSSLKeyFile.kdb -pw 'p@ssw0rd' -label ssldrhaqm1certlabel -target ssldrhaqm1certlabel_pubkey.txt
+```
+
+This should create file called `ssldrhaqm1certlabel_pubkey.txt` in your current directory. Copy this down to your client.
+
+Now add the pub cert from the server to your new client key db:
+
+```
+[kramerro@mq-client keys]$ /opt/mqm/bin/runmqakm -cert -add -db /home/kramerro/keys/mq_cloud_keys -pw 'p@ssw0rd' -label ssldrhaqm1certlabel -file ssldrhaqm1certlabel_pubkey.txt -format ascii
+```
+
+Now we will repeat this but reversed. We are going to extract our client certificate from our client keystore and copy it over to our primary MQ node.
+
+```
+[kramerro@mq-client keys]$ /opt/mqm/bin/runmqakm -cert -extract -db /Users/kramerro/keys/mq_cloud_keys -pw 'p@ssw0rd' -label personalcertlabel -target personalcertlabel_pubkey.txt
+```
+
+Copy that up to the mq host and import it into the server side key store
+
+```
+[mqm@wdc1-mq1 ssl]$ /opt/mqm/bin/runmqakm -cert -add -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/defaultSSLKeyFile.kdb -pw 'p@ssw0rd' -label personalcertlabel -file personalcertlabel_pubkey.txt -format ascii
+```
+Refresh security on the mq host:
+
+```
+[mqm@wdc1-mq1 ~]$ runmqsc -u mqadmin SSLDRHAQM1
+5724-H72 (C) Copyright IBM Corp. 1994, 2021.
+Enter password:
+*******
+Starting MQSC for queue manager SSLDRHAQM1.
+
+REFRESH QMGR TYPE(CONFIGEV) OBJECT(AUTHREC)
+REFRESH SECURITY TYPE(CONNAUTH)  
+REFRESH SECURITY TYPE(SSL)  
+REFRESH SECURITY TYPE(AUTHSERV)
+```
+
+Now run this command on the client to verify SSL
+
+```
+[kramerro@mq-client keys]$ /opt/mqm/samp/bin/amqssslc -m SSLDRHAQM1 -c SSLDRHAQM1.MQIPT -x "52.116.121.144(1501)" -k /home/kramerro/keys/mq_cloud_keys -l personalcertlabel -s TLS_RSA_WITH_AES_256_GCM_SHA384
+```
+
+If everything was done right, you should see this:
+
+```
+Sample AMQSSSLC start
+Connecting to queue manager SSLDRHAQM1
+Using the server connection channel SSLDRHAQM1.MQIPT
+on connection name 52.116.121.144(1501).
+Using SSL CipherSpec TLS_RSA_WITH_AES_128_CBC_SHA256
+Using SSL key repository stem /home/kramerro/keys/mq_cloud_keys
+Certificate Label: personalcertlabel
+No OCSP configuration specified.
+Connection established to queue manager SSLDRHAQM1
+Sample AMQSSSLC end
+```
 
 
 Referance Links:
