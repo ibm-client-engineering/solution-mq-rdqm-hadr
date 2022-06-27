@@ -1163,6 +1163,131 @@ No OCSP configuration specified.
 Connection established to queue manager SSLDRHAQM1
 Sample AMQSSSLC end
 ```
+## Configuring MQ-IPT for SSLServer/Client
+
+On the MQ-IPT server, let's first create a couple of keystores. These will be labeled for client and server. It's important to note that in this context, mqipt is acting as the SSL server for incoming client connections and it is acting as an SSL client for outgoing to the MQ nodes.
+
+```
+mqiptKeycmd -keydb -create -db /opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-client.pfx -pw 'p@ssw0rd' -type pkcs12 -stash
+
+mqiptKeycmd -keydb -create -db /opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-server.pfx -pw 'p@ssw0rd' -type pkcs12 -stash
+```
+
+Now let's create a self-signed cert to install into both keystores
+
+```
+mqiptKeycmd -cert -create -db /opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-server.pfx -stashed -type pkcs12 -label mqiptserver -dn "CN=mqipt-server, OU=IBM, C=US" -sig_alg SHA256WithRSA -size 2048
+
+mqiptKeycmd -cert -create -db /opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-client.pfx -stashed -type pkcs12 -label mqiptclient -dn "CN=mqipt-client, OU=IBM, C=US" -sig_alg SHA256WithRSA -size 2048
+```
+
+Extract the key from the SSL client keystore on mqipt host and copy that up to the mq host and import it into the keystore there:
+
+MQIPT host
+```
+root@wdc-bastion:/opt/mqipt/installation1/mqipt/HAMQ/keys# mqiptKeycmd -cert -extract -db /opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-client.pfx -label mqiptclient -stashed -format ascii -type pkcs12 -target /opt/mqipt/installation1/mqipt/HAMQ/keys/mqiptclient_public.pem
+```
+
+Primary cluster node
+```
+[mqm@dtcc-wdc1-mq1 ssl]$ /opt/mqm/bin/runmqakm -cert -add -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/defaultSSLKeyFile.kdb -pw 'p@ssw0rd' -label mqiptclient -file mqiptclient_public.pem -format ascii
+```
+
+Refresh security for that queue manager on the primary cluster node
+
+```
+[mqm@dtcc-wdc1-mq1 ~]$ runmqsc SSLDRHAQM1
+
+REFRESH QMGR TYPE(CONFIGEV) OBJECT(AUTHREC)
+REFRESH SECURITY TYPE(CONNAUTH)  
+REFRESH SECURITY TYPE(SSL)  
+REFRESH SECURITY TYPE(AUTHSERV)
+```
+
+Now extract the public cert for the SSL server from the keystore on mqipt host:
+
+MQIPT host
+```
+root@wdc-bastion:/opt/mqipt/installation1/mqipt/HAMQ/keys# mqiptKeycmd -cert -extract -db /opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-server.pfx -label mqiptserver -stashed -format ascii -type pkcs12 -target /opt/mqipt/installation1/mqipt/HAMQ/keys/mqiptserver_public.pem -format ascii
+```
+
+Install it in our client so we trust it
+
+```
+[kramerro@wdc-mq-client keys]$ /opt/mqm/bin/runmqakm -cert -add -db /home/kramerro/keys/mq_cloud_keys -pw 'p@ssw0rd' -label mqiptserver -file mqiptserver_public.pem -format ascii
+```
+
+Now lets generate a new personal cert on our client machine and import it into mq-ipt's keystore
+
+```
+[kramerro@wdc-mq-client keys]$ runmqakm -cert -create -db mq_cloud_keys -stashed -label wdc-mq-client -dn "CN=wdc-mq-client, OU=IBM, C=US" -sig_alg SHA256WithRSA -size 2048
+```
+
+Extract it on the client and import the public cert into mqipt
+
+```
+[kramerro@wdc-mq-client keys]$ runmqakm -cert -extract -db mq_cloud_keys -pw 'p@ssw0rd' -label wdc-mq-client -target wdc-mq-client_public.txt
+```
+
+Import it into MQIPT's SSL server keystore
+
+```
+root@wdc-bastion:/opt/mqipt/installation1/mqipt/HAMQ/keys# mqiptKeycmd -cert -add -db mq-ipt-server.pfx -stashed -label wdc-mq-client -file wdc-mq-client_public.txt -format ascii -type pkcs12
+```
+
+Encrypt the keystore password so we can put it into the mqipt.conf file:
+
+```
+root@wdc-bastion:/opt/mqipt/installation1/mqipt/HAMQ/keys# mqiptPW p@ssw0rd mq-ipt-pw.key
+```
+
+This is a deprecated use for mqiptPW but we're gonna roll with it. Make sure the mq-ipt-pw.key file is in the same directory we have our mqipt instance running out of. Probably safer to keep it in the keys directory.
+
+Modify the mqipt.conf file. Our file is stored in our instance directory `/opt/mqipt/installation1/mqipt/HAMQ/mqipt.conf`
+
+```
+[route]
+Name=SSLDRHAQM1
+Active=true
+ListenerPort=1501
+Destination=3bdf30c3-us-east.lb.appdomain.cloud
+DestinationPort=1501
+SSLServer=true
+SSLServerSiteLabel=mqiptserver
+SSLServerAskClientAuth=true
+SSLServerKeyRing=/opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-server.pfx
+SSLServerKeyRingPW=/opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-pw.key
+SSLServerCipherSuites=SSL_RSA_WITH_AES_256_GCM_SHA384
+SSLClient=true
+SSLClientSiteLabel=mqiptclient
+SSLClientKeyRing=/opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-client.pfx
+SSLClientKeyRingPW=/opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-pw.key
+SSLClientCipherSuites=SSL_RSA_WITH_AES_256_GCM_SHA384
+Trace=0
+```
+
+Now reload MQ-IPT
+
+```
+systemctl reload mqipt-@HAMQ.service
+```
+
+Verify the connection from the client
+
+```
+[kramerro@wdc-mq-client keys]$ /opt/mqm/samp/bin/amqssslc -m DRHAQM1 -c DRHAMQ1.MQIPT -x "52.116.121.144(1501)" -k /home/kramerro/keys/mq_cloud_keys -l wdc-mq-client -s TLS_RSA_WITH_AES_256_GCM_SHA384
+
+Sample AMQSSSLC start
+Connecting to queue manager SSLDRHAQM1
+Using the server connection channel SSLDRHAMQ1.MQIPT
+on connection name 52.116.121.144(1501).
+Using SSL CipherSpec TLS_RSA_WITH_AES_256_GCM_SHA384
+Using SSL key repository stem /home/kramerro/keys/mq_cloud_keys
+Certificate Label: wdc-mq-client
+No OCSP configuration specified.
+Connection established to queue manager SSLDRHAQM1
+Sample AMQSSSLC end
+```
 
 
 Referance Links:
