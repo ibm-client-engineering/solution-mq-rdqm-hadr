@@ -661,73 +661,636 @@ MQIPT accepts a TLS from a queue manager or a client, the certificate is validat
 - Certificate revocation checking is preformed.
 - A certificate exit can be written to perform additional checks.
 
-![ipt-security-image](./resources/MQIPT_TLS_Security.png)
-
 <b>Advanced Message Security ( AMS )</b> expands IBM MQ security services to provide data signing and encryption at the message level. The expanded services guarantees that message data has not been modified between when it is originally placed on a queue and when it is retrieved. In addition, AMS verifies that a sender of message data is authorized to place signed messages on a target queue.
 
-### MQIPT Security with TLS
-<b>Creating the key ring file</b>
-- Use the command line interface (CLI) mqiptKeycmd located in the mqipt/bin directory
+### SSL configuration for MQ and MQ-IPT
+
+For testing purposes, we are going to createa new queue manager and configure it with LDAP authentication and SSL.
+
+#### Creating the new queue manager
+
+Starting with `wdc3-mq1`
 ```
-# mqiptKeycmd -keydb -create -db TLS-POC-DB.pfx -pw SOMEPASS -type pkcs12
+mqm@wdc3-mq1 ~]$ sudo /opt/mqm/bin/crtmqm -sxs -rr p -rl 10.241.0.4,10.241.64.4,10.241.128.4 -ri 10.240.0.4,10.240.64.4,10.240.128.4 -rp 7005 -fs 3072M SSLDRHAQM1
+Creating replicated data queue manager configuration.
+IBM MQ secondary queue manager created.
 ```
-- Create a self-signed personal certificate for testing purposes
+
+`wdc2-mq1`
+
 ```
-# ./mqiptKeycmd -cert -create -db TLS-POC-DB.pfx -pw SOMEPASS -type pkcs12
-            -label label -dn "CN=host1.securedomain.com,OU=SomeName,O=Example,C=US"
-            -sig_alg SHA256WithRSA -size 2048
+[mqm@dwdc2-mq1 ~]$ sudo /opt/mqm/bin/crtmqm -sxs -rr p -rl 10.241.0.4,10.241.64.4,10.241.128.4 -ri 10.240.0.4,10.240.64.4,10.240.128.4 -rp 7005 -fs 3072M SSLDRHAQM1
+Creating replicated data queue manager configuration.
+IBM MQ secondary queue manager created.
 ```
-- Encrypt the key ring password
+
+`wdc1-mq1`
 ```
-	       # ./mqiptPW SOMEPASS filename.pwd
+[mqm@wdc1-mq1 ~]$ sudo /opt/mqm/bin/crtmqm -sx -rr p -rl 10.241.0.4,10.241.64.4,10.241.128.4 -ri 10.240.0.4,10.240.64.4,10.240.128.4 -rp 7005 -fs 3072M SSLDRHAQM1
+Creating replicated data queue manager configuration.
+IBM MQ queue manager 'SSLDRHAQM1' created.
+Directory '/var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1' created.
+The queue manager is associated with installation 'Installation1'.
+Creating or replacing default objects for queue manager 'SSLDRHAQM1'.
+Default objects statistics : 83 created. 0 replaced. 0 failed.
+Completing setup.
+Setup completed.
+Enabling replicated data queue manager.
+Replicated data queue manager enabled.
+Issue the following command on the remote HA group to create the DR/HA
+secondary queue manager:
+crtmqm -sx -rr s -rl 10.240.0.4,10.240.64.4,10.240.128.4 -ri 10.241.0.4,10.241.64.4,10.241.128.4 -rp 7005 -fs 3072M SSLDRHAQM1
 ```
-•	Modify the mqipt.conf file to add the SSL parameters
+Now wash, rinse, repeat and create the queue with the `-rr` option set as `s` on the DR queue in Dallas:
+
+`dal3-mq1`
+```
+[mqm@dal3-mq1 ~]$ sudo /opt/mqm/bin/crtmqm -sxs -rr s -ri 10.241.0.4,10.241.64.4,10.241.128.4 -rl 10.240.0.4,10.240.64.4,10.240.128.4 -rp 7005 -fs 3072M SSLDRHAQM1
+Creating replicated data queue manager configuration.
+IBM MQ secondary queue manager created.
+```
+`dal2-mq1`
+```
+[mqm@dal2-mq1 ~]$ sudo /opt/mqm/bin/crtmqm -sxs -rr s -ri 10.241.0.4,10.241.64.4,10.241.128.4 -rl 10.240.0.4,10.240.64.4,10.240.128.4 -rp 7005 -fs 3072M SSLDRHAQM1
+Creating replicated data queue manager configuration.
+IBM MQ secondary queue manager created.
+```
+`dal1-mq1`
+```
+[mqm@ceng-dal1-mq1 ~]$ sudo /opt/mqm/bin/crtmqm -sx -rr s -ri 10.241.0.4,10.241.64.4,10.241.128.4 -rl 10.240.0.4,10.240.64.4,10.240.128.4 -rp 7005 -fs 3072M SSLDRHAQM1
+Creating replicated data queue manager configuration.
+IBM MQ secondary queue manager created.
+Enabling replicated data queue manager.
+Replicated data queue manager enabled.
+```
+Now we should see a happy replicated queue
+```
+[root@wdc1-mq1 ~]# rdqmstatus -m SSLDRHAQM1
+Node:                                   wdc1-mq1
+Queue manager status:                   Running
+CPU:                                    0.00%
+Memory:                                 182MB
+Queue manager file system:              58MB used, 2.9GB allocated [2%]
+HA role:                                Primary
+HA status:                              Normal
+HA control:                             Enabled
+HA current location:                    This node
+HA preferred location:                  This node
+HA blocked location:                    None
+HA floating IP interface:               None
+HA floating IP address:                 None
+DR role:                                Primary
+DR status:                              Normal
+DR port:                                7005
+DR local IP address:                    10.241.0.4
+DR remote IP address list:              10.240.0.4,10.240.64.4,10.240.128.4
+DR current remote IP address:           10.240.0.4
+
+Node:                                   wdc2-mq1
+HA status:                              Normal
+
+Node:                                   wdc3-mq1
+HA status:                              Normal
+```
+
+Let's create the queue. From the primary node, log into the queue manager and create the channel and the queue and the listener at port 1503:
+```
+[mqm@wdc1-mq1 ~]$ runmqsc SSLDRHAQM1
+
+DEFINE CHANNEL(SSLDRHAQM1.MQIPT) CHLTYPE(SVRCONN)
+DEFINE QLOCAL(MQIPT.LOCAL.QUEUE)
+DEFINE listener(LISTENER) trptype(tcp) control(qmgr) port(1503)
+start listener(LISTENER)
+```
+
+#### Configuring OpenLDAP in a container
+
+_If you already have an Active Directory server or an LDAP host, you can skip this next part._
+
+Now let's get ldap going. For that, we're gonna spin up an ldap container on a docker host that's on the same networks as your clusters. Since this is a regional failover HADR cluster, you should probably have a second LDAP host running in this DR region and have replication for LDAP set up, but we won't go into that here. 
+
+Let's create some persistent file storage directories for the container to use first on our docker host:
+
+```
+mkdir -p /LDAP_DIR/ldap /LDAP_DIR/slapd.d
+chmod -R 777 /LDAP_DIR
+```
+We are going to seed an ldif into this container. Create a file under `/LDAP_DIR` called `bootstrap.ldif`:
+```
+dn: ou=people,dc=ibm,dc=com
+objectClass: organizationalUnit
+description: All people in organization
+ou: people
+
+dn: ou=groups,dc=ibm,dc=com
+objectClass: organizationalUnit
+objectClass: top
+ou: groups
+
+#MQ user + group
+dn: uid=app,ou=people,dc=ibm,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: appCN
+sn: appSN
+uid: app
+userPassword: app
+
+dn: cn=apps,ou=groups,dc=ibm,dc=com
+objectClass: groupOfUniqueNames
+objectClass: top
+cn: apps
+uniquemember: uid=app,ou=people,dc=ibm,dc=com
+
+dn: uid=mqadmin,ou=people,dc=ibm,dc=com
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+cn: mqadminCN
+sn: mqadminSN
+uid: mqadmin
+userPassword: mqadmin
+
+dn: cn=mqadmins,ou=groups,dc=ibm,dc=com
+objectClass: groupOfUniqueNames
+objectClass: top
+cn: mqadmins
+uniquemember: uid=mqadmin,ou=people,dc=ibm,dc=com
+```
+
+And now spin up a container making sure to mount that file as a custom seed. For our test setup we are using the osixia/openldap container image.
+
+```
+docker run \
+--restart=always \
+-p 1636:1636 \
+-p 389:389 \
+-p 636:636 \
+-v /LDAP_DIR/bootstrap.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/50-bootstrap.ldif \
+-v /LDAP_DIR/ldap:/var/lib/ldap \
+-v /LDAP_DIR/slapd.d:/etc/ldap/slapd.d \
+--env LDAP_ORGANIZATION="IBM" \
+--env LDAP_ADMIN_PASSWORD="p@ssw0rd" \
+--env LDAP_CONFIG_PASSWORD="p@ssw0rd" \
+--env LDAP_ENABLE_TLS="yes" \
+--env LDAP_DOMAIN="ibm.com" \
+--hostname mq.openldap \
+--name mq-openldap-container \
+--detach osixia/openldap:latest \
+--copy-service
+```
+For our purposes, we set the domain to `ibm.com` and then set an admin password of `p@ssw0rd`. 
+
+Now we're going to configure our new queue mgr to auth with ldap. First we need to create the AUTHINFO object that will contain our ldap server info. This must be run by a member of the mqm group.
+
+```
+[mqm@wdc1-mq1 ~]$ runmqsc SSLDRHAQM1
+5724-H72 (C) Copyright IBM Corp. 1994, 2022.
+Starting MQSC for queue manager SSLDRHAQM1.
+
+DEFINE AUTHINFO(SSLDRHAQM1.IDPW.LDAP) AUTHTYPE(IDPWLDAP) ADOPTCTX(YES) CONNAME('10.241.2.5(389)') SECCOMM(NO) CHCKLOCL(OPTIONAL) CHCKCLNT(OPTIONAL) CLASSGRP('groupOfUniqueNames') CLASSUSR('inetOrgPerson') FINDGRP('uniqueMember') BASEDNG('ou=groups,dc=ibm,dc=com') BASEDNU('ou=people,dc=ibm,dc=com') LDAPUSER('cn=admin,dc=ibm,dc=com') LDAPPWD('p@ssw0rd') SHORTUSR('uid') GRPFIELD('cn') USRFIELD('uid') AUTHORMD(SEARCHGRP) NESTGRP(YES)
+```
+Above we've created an authinfo object. While everything above is needed, here are the most important settings:
+
+- AUTHINFO - we've named it `SSLDRHAQM1.IDPQ.LDAP`
+- AUTHTYPE - `IDPWLDAP` Connection authentication user ID and password checking is done using an LDAP server. 
+- ADOPTCTX - `YES` - This means authenticated users are used for authorization checks, shown on administrative displays, and appear in messages.
+- CONNAME - `10.241.2.5(389)` This the actual ip address of our docker host where our ldap container is running
+- CHCKLOCL - This attribute determines the authentication requirements for locally bound applications, and is valid only for an AUTHTYPE of `IDPWOS` or `IDPWLDAP`. We are setting this to `OPTIONAL` which means locally bound applications are not required to provide a user ID and password. This is ideal for testing purposes.
+- CHCKCLNT - This attribute determines the authentication requirements for client applications, and is valid only for an AUTHTYPE of IDPWOS or IDPWLDAP. We're setting it to `OPTIONAL` which means that client applications are not required to provide a user ID and password, but any provided will be authenticated against your authentication method. In our case, that's LDAP.
+- SECCOMM - We aren't using LDAPS in this example, so this is set to `NO`
+
+The rest of the settings are LDAP specific and should be mostly self-explanatory.
+
+Next, execute the following command to reconfigure the **LDAPQM** queue manager to use the new **SSLDRHAQM1.IDPW.LDAP AUTHINFO object:**
+
+```
+ALTER QMGR CONNAUTH(SSLDRHAQM1.IDPW.LDAP)
+REFRESH QMGR TYPE(CONFIGEV) OBJECT(AUTHREC)
+REFRESH SECURITY
+```
+
+Now restart the queuemgr
+
+```
+[mqm@dwdc1-mq1 ~]$ endmqm -i SSLDRHAQM1 && strmqm SSLDRHAQM1
+```
+
+Now we need to set the authorizations and hope it all works. Make sure to run this command on the primary node as the `mqm` user:
+
+```
+setmqaut -m SSLDRHAQM1 -t qmgr -g "mqadmins" +connect +inq +alladm
+setmqaut -m SSLDRHAQM1 -n "**" -t q -g "mqadmins" +alladm +crt +browse
+setmqaut -m SSLDRHAQM1 -n "**" -t topic -g "mqadmins" +alladm +crt
+setmqaut -m SSLDRHAQM1 -n "**" -t channel -g "mqadmins" +alladm +crt
+setmqaut -m SSLDRHAQM1 -n "**" -t process -g "mqadmins" +alladm +crt
+setmqaut -m SSLDRHAQM1 -n "**" -t namelist -g "mqadmins" +alladm +crt
+setmqaut -m SSLDRHAQM1 -n "**" -t authinfo -g "mqadmins" +alladm +crt
+setmqaut -m SSLDRHAQM1 -n "**" -t clntconn -g "mqadmins" +alladm +crt
+setmqaut -m SSLDRHAQM1 -n "**" -t listener -g "mqadmins" +alladm +crt
+setmqaut -m SSLDRHAQM1 -n "**" -t service -g "mqadmins" +alladm +crt
+setmqaut -m SSLDRHAQM1 -n "**" -t comminfo -g "mqadmins" +alladm +crt
+setmqaut -m SSLDRHAQM1 -n SYSTEM.MQEXPLORER.REPLY.MODEL -t q -g "mqadmins" +dsp +inq +get
+setmqaut -m SSLDRHAQM1 -n SYSTEM.ADMIN.COMMAND.QUEUE -t q -g "mqadmins" +dsp +inq +put
+```
+
+You can verify that LDAP auth is now working by running the following command using `mqadmin` as the user:
+
+```
+[mqm@wdc1-mq1 ~]$ runmqsc -u mqadmin SSLDRHAQM1
+5724-H72 (C) Copyright IBM Corp. 1994, 2021.
+Enter password:
+*******
+Starting MQSC for queue manager SSLDRHAQM1.
+```
+The password for mqadmin is `mqadmin`
+
+#### Configuring SSL in Queue Manager and client
+
+Firstly, let's verify where our SSL key directory is in the queue manager
+
+```
+mqm@wdc1-mq1 ~]$ runmqsc -u mqadmin SSLDRHAQM1
+5724-H72 (C) Copyright IBM Corp. 1994, 2021.
+Enter password:
+*******
+Starting MQSC for queue manager SSLDRHAQM1.
+
+DISPLAY QMGR SSLKEYR
+    15 : DISPLAY QMGR SSLKEYR
+AMQ8408I: Display Queue Manager details.
+   QMNAME(DRHAQM1)
+   SSLKEYR(/var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/key)
+
+```
+This is the default entry for the queue manager. So initially, we want to create a keyfile db. This is going to live at the path we found above. This is important since our example queue manager is replicated via RDMQ so it this keyfile needs to be on the replicated volume. 
+
+So first, let's create a key repo on the MQ primary node:
+
+```
+mqm@wdc1-mq1 ~]$ runmqakm -keydb -create -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile -pw 'p@ssw0rd' -type cms -stash 
+```
+This should create the following files:
+
+```
+ssldrhaqm1KeyFile.crl
+ssldrhaqm1KeyFile.kdb
+ssldrhaqm1KeyFile.rdb
+ssldrhaqm1KeyFile.sth
+```
+
+Very important! Make sure the directory and file permissions are correct for the generated key db! The file should be owned by the user running that queue. Ig `mqm` as an example. Also important to remember, while you'll reference the keyfile like `/var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile` in the queue manager settings, the file itself **must** have the `.kdb` suffix. 
+
+Now we can populate the keyfile with the default CA signers with the following commands:
+
+```
+mqm@wdc1-mq1 ~]$ runmqckm -cert -populate -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile.kdb -stashed -label entrust
+mqm@wdc1-mq1 ~]$ runmqckm -cert -populate -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile.kdb -stashed -label thawte
+mqm@wdc1-mq1 ~]$ runmqckm -cert -populate -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile.kdb -stashed -label verisign
+```
+Should be able to verify that with 
+```
+mqm@wdc1-mq1 ~]$ runmqckm -cert -list -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile.kdb -stashed
+
+Certificates found
+* default, - personal, ! trusted, # secret key
+!	"Entrust.net Certification Authority (2048) 29"
+!	"Entrust Root Certification Authority - EC1"
+!	"Entrust Root Certification Authority - EV"
+!	"Entrust Root Certification Authority - G2"
+!	"Thawte Personal Basic CA"
+!	"Thawte Personal Freemail CA"
+!	"Thawte Personal Premium CA"
+!	"Thawte Premium Server CA"
+!	"Thawte Server CA"
+!	"Thawte Primary Root CA - G2 ECC"
+!	"Thawte Primary Root CA"
+!	"VeriSign Class 1 Public Primary Certification Authority"
+!	"VeriSign Class 1 Public Primary Certification Authority - G2"
+!	"VeriSign Class 1 Public Primary Certification Authority - G3"
+!	"VeriSign Class 2 Public Primary Certification Authority"
+!	"VeriSign Class 2 Public Primary Certification Authority - G2"
+!	"VeriSign Class 2 Public Primary Certification Authority - G3"
+!	"VeriSign Class 3 Public Primary Certification Authority"
+!	"VeriSign Class 3 Public Primary Certification Authority - G2"
+!	"VeriSign Class 3 Public Primary Certification Authority - G3"
+!	"VeriSign Class 3 Public Primary Certification Authority - G5"
+!	"VeriSign Class 4 Public Primary Certification Authority - G2"
+!	"VeriSign Class 4 Public Primary Certification Authority - G3"
+```
+
+So now we've populated the keystore with the default CA signers. Let's generate our own self-signed certificate:
+
+```
+mqm@wdc1-mq1 ~]$ runmqakm -cert -create \
+-db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile.kdb \
+-stashed \
+-label ssldrhaqm1certlabel \
+-dn "cn=SSLDRHAQM1,O=IBM,C=US,OU=SSL For MQ,ST=MA" \
+-size 2048 \
+-x509version 3 \
+-expire 7300 \
+-sig_alg SHA256WithRSA \
+-type cms
+```
+
+So breaking down the above command:
+
+- `-db` - points to our key database
+- `-pw` - is our password for that key database
+- `-stashed` - when we created our keystore we created a .sth file that contains the password encrypted. This allows us to pass the `-stashed` argument.
+- `-label` - We're gonna label this with our queue manager name
+- `-dn` - This is our distinguished name. We're leading off with the name of the queue manager.
+- `-size` - we're setting this to 2048 
+- `-x509version` - Setting this to 3. This is the default anyway.
+- `-expire` - Don't want this cert to expire for 7300 days which is the maximum supported by this command.
+- `-sig_alg` -  We are going with `SHA256WithRSA` 
+- `-type` - We're going with cms since that's the keystore type
+
+We can verify the certificate creation with 
+```
+mqm@wdc1-mq1 ~]$ runmqckm -cert -list -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile.kdb -stashed | grep ssldrhaqm1certlabel
+
+-	ssldrhaqm1certlabel
+```
+The dash indicates that this cert label is a personal certificate.
+
+Now we need to point the queue manager to use our new keystore
+```
+[mqm@wdc1-mq1 ~]$ runmqsc -u mqadmin SSLDRHAQM1
+5724-H72 (C) Copyright IBM Corp. 1994, 2021.
+Enter password:
+*******
+Starting MQSC for queue manager SSLDRHAQM1.
+
+ALTER QMGR SSLKEYR('/var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile')
+ALTER QMGR CERTLABL('ssldrhaqm1certlabel')
+REFRESH SECURITY
+REFRESH QMGR TYPE(CONFIGEV) OBJECT(AUTHREC)
+```
+It's important to note that even though the keyfile is `ssldrhaqm1KeyFile.kdb` it must be referenced in MQ without the `.kdb` suffix.
+
+#### Setting the channel auth for SSL
+
+Let's set our channel authentication
+```
+set CHLAUTH(SSLDRHAQM1.MQIPT) TYPE(USERMAP) CLNTUSER('mqadmin') USERSRC(MAP) MCAUSER('mqadmin') ACTION(REPLACE)
+alter channel(SSLDRHAQM1.MQIPT) CHLTYPE(SVRCONN) MCAUSER('mqadmin') CERTLABL('ssldrhaqm1certlabel') SSLCAUTH(REQUIRED) SSLCIPH(ANY) TRPTYPE(TCP)
+REFRESH SECURITY
+REFRESH QMGR TYPE(CONFIGEV) OBJECT(AUTHREC)
+REFRESH SECURITY TYPE(CONNAUTH)  
+REFRESH SECURITY TYPE(SSL)  
+REFRESH SECURITY TYPE(AUTHSERV)
+```
+We'll set this so the mqadmin user can authenticate in
+
+Let's configure MQIPT for SSLProxy
+
+On our MQIPT host, edit the `/opt/mqipt/installation1/mqipt/HAMQ/mqipt.conf` file and add the route entry. 
+
 ```
 [route]
-Name=TLSDRHAQM1
-Active=false
-ListenerPort=1401
+Name=SSLDRHAQM1
+Active=true
+ListenerPort=1503
 Destination=3bdf30c3-us-east.lb.appdomain.cloud
-DestinationPort=1401
-SSLServer=true
-SSLServerCipherSuites=SSL_RSA_WITH_AES_256_CBC_SHA256
-SSLServerKeyRing=/opt/mqipt/installation1/mqipt/samples/ssl/TLS-POC-DB.pfx
-SSLServerKeyRingPW=/opt/mqipt/installation1/mqipt/samples/ssl/TLS-POC-DB.pwd
-SSLServerDN_O=*
-SSLServerDN_CN=*.securedoamin.com
-SSLServerAskClientAuth=true
+DestinationPort=1503
+SSLProxyMode=true
+```
 
+Reload the mqipt config for this instance
+```
+systemctl reload mqipt-@HAMQ.service
+```
+
+Now let's create a client self-signed certificate. Over on our client now:
+
+```
+[kramerro@wdc-mq-client keys]$ mkdir ~/keys
+[kramerro@wdc-mq-client keys]$ cd ~/keys
+[kramerro@wdc-mq-client keys]$ /opt/mqm/bin/runmqakm -keydb -create -db mq_cloud_keys -pw 'p@ssw0rd' -type cms -stash
+```
+
+Create a personal cert on the client
+
+```
+[kramerro@wdc-mq-client keys]$ /opt/mqm/bin/runmqakm -cert -create \
+-db /home/kramerro/keys/mq_cloud_keys \
+-pw 'p@ssw0rd' \
+-label personalcertlabel \
+-dn "cn=kramerro,O=IBM,C=US,OU=SSL For MQ,ST=MA" \
+-size 2048 \
+-x509version 3 \
+-expire 7300 \
+-sig_alg SHA256WithRSA \
+-type kdb
+```
+
+This keyfile **MUST also have a `.kdb` suffix but not referenced with it.**
+
+You can verify the new cert with this:
+
+```
+[kramerro@wdc-mq-client keys]$ /opt/mqm/bin/runmqakm -cert -list -db /home/kramerro/keys/mq_cloud_keys.kdb -pw 'p@ssw0rd'
+
+Certificates found
+* default, - personal, ! trusted, # secret key
+-	personalcertlabel
+```
+
+On the MQ Server host, extract the personal certificate from the server key repository and add it to the client repository.
+
+```
+[mqm@wdc1-mq1 ssl]$ runmqakm -cert -extract -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/defaultSSLKeyFile.kdb -pw 'p@ssw0rd' -label ssldrhaqm1certlabel -target ssldrhaqm1certlabel_pubkey.txt
+```
+
+This should create file called `ssldrhaqm1certlabel_pubkey.txt` in your current directory. Copy this down to your client.
+
+Now add the pub cert from the server to your new client key db:
+
+```
+[kramerro@mq-client keys]$ /opt/mqm/bin/runmqakm -cert -add -db /home/kramerro/keys/mq_cloud_keys -pw 'p@ssw0rd' -label ssldrhaqm1certlabel -file ssldrhaqm1certlabel_pubkey.txt -format ascii
+```
+
+Now we will repeat this but reversed. We are going to extract our client certificate from our client keystore and copy it over to our primary MQ node.
+
+```
+[kramerro@mq-client keys]$ /opt/mqm/bin/runmqakm -cert -extract -db /Users/kramerro/keys/mq_cloud_keys -pw 'p@ssw0rd' -label personalcertlabel -target personalcertlabel_pubkey.txt
+```
+
+Copy that up to the mq host and import it into the server side key store
+
+```
+[mqm@wdc1-mq1 ssl]$ /opt/mqm/bin/runmqakm -cert -add -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/defaultSSLKeyFile.kdb -pw 'p@ssw0rd' -label personalcertlabel -file personalcertlabel_pubkey.txt -format ascii
+```
+Refresh security on the mq host:
+
+```
+[mqm@wdc1-mq1 ~]$ runmqsc -u mqadmin SSLDRHAQM1
+5724-H72 (C) Copyright IBM Corp. 1994, 2021.
+Enter password:
+*******
+Starting MQSC for queue manager SSLDRHAQM1.
+
+REFRESH QMGR TYPE(CONFIGEV) OBJECT(AUTHREC)
+REFRESH SECURITY TYPE(CONNAUTH)  
+REFRESH SECURITY TYPE(SSL)  
+REFRESH SECURITY TYPE(AUTHSERV)
+```
+
+Now run this command on the client to verify SSL
+
+```
+[kramerro@mq-client keys]$ /opt/mqm/samp/bin/amqssslc -m SSLDRHAQM1 -c SSLDRHAQM1.MQIPT -x "52.116.121.144(1501)" -k /home/kramerro/keys/mq_cloud_keys -l personalcertlabel -s TLS_RSA_WITH_AES_256_GCM_SHA384
+```
+
+If everything was done right, you should see this:
+
+```
+Sample AMQSSSLC start
+Connecting to queue manager SSLDRHAQM1
+Using the server connection channel SSLDRHAQM1.MQIPT
+on connection name 52.116.121.144(1501).
+Using SSL CipherSpec TLS_RSA_WITH_AES_128_CBC_SHA256
+Using SSL key repository stem /home/kramerro/keys/mq_cloud_keys
+Certificate Label: personalcertlabel
+No OCSP configuration specified.
+Connection established to queue manager SSLDRHAQM1
+Sample AMQSSSLC end
+```
+## Configuring MQ-IPT for SSLServer/Client
+
+On the MQ-IPT server, let's first create a couple of keystores. These will be labeled for client and server. It's important to note that in this context, mqipt is acting as the SSL server for incoming client connections and it is acting as an SSL client for outgoing to the MQ nodes.
+
+```
+mqiptKeycmd -keydb -create -db /opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-client.pfx -pw 'p@ssw0rd' -type pkcs12 -stash
+
+mqiptKeycmd -keydb -create -db /opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-server.pfx -pw 'p@ssw0rd' -type pkcs12 -stash
+```
+
+Now let's create a self-signed cert to install into both keystores
+
+```
+mqiptKeycmd -cert -create -db /opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-server.pfx -stashed -type pkcs12 -label mqiptserver -dn "CN=mqipt-server, OU=IBM, C=US" -sig_alg SHA256WithRSA -size 2048
+
+mqiptKeycmd -cert -create -db /opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-client.pfx -stashed -type pkcs12 -label mqiptclient -dn "CN=mqipt-client, OU=IBM, C=US" -sig_alg SHA256WithRSA -size 2048
+```
+
+Extract the key from the SSL client keystore on mqipt host and copy that up to the mq host and import it into the keystore there:
+
+MQIPT host
+```
+root@wdc-bastion:/opt/mqipt/installation1/mqipt/HAMQ/keys# mqiptKeycmd -cert -extract -db /opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-client.pfx -label mqiptclient -stashed -format ascii -type pkcs12 -target /opt/mqipt/installation1/mqipt/HAMQ/keys/mqiptclient_public.pem
+```
+
+Primary cluster node
+```
+[mqm@dtcc-wdc1-mq1 ssl]$ /opt/mqm/bin/runmqakm -cert -add -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/defaultSSLKeyFile.kdb -pw 'p@ssw0rd' -label mqiptclient -file mqiptclient_public.pem -format ascii
+```
+
+Refresh security for that queue manager on the primary cluster node
+
+```
+[mqm@dtcc-wdc1-mq1 ~]$ runmqsc SSLDRHAQM1
+
+REFRESH QMGR TYPE(CONFIGEV) OBJECT(AUTHREC)
+REFRESH SECURITY TYPE(CONNAUTH)  
+REFRESH SECURITY TYPE(SSL)  
+REFRESH SECURITY TYPE(AUTHSERV)
+```
+
+Now extract the public cert for the SSL server from the keystore on mqipt host:
+
+MQIPT host
+```
+root@wdc-bastion:/opt/mqipt/installation1/mqipt/HAMQ/keys# mqiptKeycmd -cert -extract -db /opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-server.pfx -label mqiptserver -stashed -format ascii -type pkcs12 -target /opt/mqipt/installation1/mqipt/HAMQ/keys/mqiptserver_public.pem -format ascii
+```
+
+Install it in our client so we trust it
+
+```
+[kramerro@wdc-mq-client keys]$ /opt/mqm/bin/runmqakm -cert -add -db /home/kramerro/keys/mq_cloud_keys -pw 'p@ssw0rd' -label mqiptserver -file mqiptserver_public.pem -format ascii
+```
+
+Now lets generate a new personal cert on our client machine and import it into mq-ipt's keystore
+
+```
+[kramerro@wdc-mq-client keys]$ runmqakm -cert -create -db mq_cloud_keys -stashed -label wdc-mq-client -dn "CN=wdc-mq-client, OU=IBM, C=US" -sig_alg SHA256WithRSA -size 2048
+```
+
+Extract it on the client and import the public cert into mqipt
+
+```
+[kramerro@wdc-mq-client keys]$ runmqakm -cert -extract -db mq_cloud_keys -pw 'p@ssw0rd' -label wdc-mq-client -target wdc-mq-client_public.txt
+```
+
+Import it into MQIPT's SSL server keystore
+
+```
+root@wdc-bastion:/opt/mqipt/installation1/mqipt/HAMQ/keys# mqiptKeycmd -cert -add -db mq-ipt-server.pfx -stashed -label wdc-mq-client -file wdc-mq-client_public.txt -format ascii -type pkcs12
+```
+
+Encrypt the keystore password so we can put it into the mqipt.conf file:
+
+```
+root@wdc-bastion:/opt/mqipt/installation1/mqipt/HAMQ/keys# mqiptPW p@ssw0rd mq-ipt-pw.key
+```
+
+This is a deprecated use for mqiptPW but we're gonna roll with it. Make sure the mq-ipt-pw.key file is in the same directory we have our mqipt instance running out of. Probably safer to keep it in the keys directory.
+
+Modify the mqipt.conf file. Our file is stored in our instance directory `/opt/mqipt/installation1/mqipt/HAMQ/mqipt.conf`
+
+```
 [route]
-Name=TLSDRHAQM2
-Active=false
-ListenerPort=1402
+Name=SSLDRHAQM1
+Active=true
+ListenerPort=1501
 Destination=3bdf30c3-us-east.lb.appdomain.cloud
-DestinationPort=1402
+DestinationPort=1501
 SSLServer=true
-SSLServerCipherSuites=SSL_RSA_WITH_AES_256_CBC_SHA256
-SSLServerKeyRing=/opt/mqipt/installation1/mqipt/samples/ssl/TLS-POC-DB.pfx
-SSLServerKeyRingPW=/opt/mqipt/installation1/mqipt/samples/ssl/TLS-POC-DB.pwd
-SSLServerDN_O=*
-SSLServerDN_CN=*.securedoamin.com
+SSLServerSiteLabel=mqiptserver
 SSLServerAskClientAuth=true
+SSLServerKeyRing=/opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-server.pfx
+SSLServerKeyRingPW=/opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-pw.key
+SSLServerCipherSuites=SSL_RSA_WITH_AES_256_GCM_SHA384
+SSLClient=true
+SSLClientSiteLabel=mqiptclient
+SSLClientKeyRing=/opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-client.pfx
+SSLClientKeyRingPW=/opt/mqipt/installation1/mqipt/HAMQ/keys/mq-ipt-pw.key
+SSLClientCipherSuites=SSL_RSA_WITH_AES_256_GCM_SHA384
+Trace=0
 ```
 
-Restart MQIPT
+Now reload MQ-IPT
 
 ```
-ps -xa | grep mqipt 
+systemctl reload mqipt-@HAMQ.service
 ```
-- find the PID form the output
+
+Verify the connection from the client
+
 ```
-kill -9 PID
-```
-Start MQIPT
-```
-mqipt /opt/mqipt/installation1/mqipt/configs -n DRHAMQ
+[kramerro@wdc-mq-client keys]$ /opt/mqm/samp/bin/amqssslc -m DRHAQM1 -c DRHAMQ1.MQIPT -x "52.116.121.144(1501)" -k /home/kramerro/keys/mq_cloud_keys -l wdc-mq-client -s TLS_RSA_WITH_AES_256_GCM_SHA384
+
+Sample AMQSSSLC start
+Connecting to queue manager SSLDRHAQM1
+Using the server connection channel SSLDRHAMQ1.MQIPT
+on connection name 52.116.121.144(1501).
+Using SSL CipherSpec TLS_RSA_WITH_AES_256_GCM_SHA384
+Using SSL key repository stem /home/kramerro/keys/mq_cloud_keys
+Certificate Label: wdc-mq-client
+No OCSP configuration specified.
+Connection established to queue manager SSLDRHAQM1
+Sample AMQSSSLC end
 ```
 
 
 Referance Links:
+
+https://www.ibm.com/docs/en/ibm-mq/9.2?topic=windows-setting-up-key-repository-aix-linux
 
 https://www.ibm.com/docs/en/ibm-mq/9.0?topic=tls-configuring-security-mq
 
