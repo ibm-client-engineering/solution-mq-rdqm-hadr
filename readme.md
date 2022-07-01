@@ -1188,13 +1188,13 @@ root@wdc-bastion:/opt/mqipt/installation1/mqipt/HAMQ/keys# mqiptKeycmd -cert -ex
 
 Primary cluster node
 ```
-[mqm@dtcc-wdc1-mq1 ssl]$ /opt/mqm/bin/runmqakm -cert -add -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/defaultSSLKeyFile.kdb -pw 'p@ssw0rd' -label mqiptclient -file mqiptclient_public.pem -format ascii
+[mqm@wdc1-mq1 ssl]$ /opt/mqm/bin/runmqakm -cert -add -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/defaultSSLKeyFile.kdb -pw 'p@ssw0rd' -label mqiptclient -file mqiptclient_public.pem -format ascii
 ```
 
 Refresh security for that queue manager on the primary cluster node
 
 ```
-[mqm@dtcc-wdc1-mq1 ~]$ runmqsc SSLDRHAQM1
+[mqm@wdc1-mq1 ~]$ runmqsc SSLDRHAQM1
 
 REFRESH QMGR TYPE(CONFIGEV) OBJECT(AUTHREC)
 REFRESH SECURITY TYPE(CONNAUTH)  
@@ -1247,9 +1247,9 @@ Modify the mqipt.conf file. Our file is stored in our instance directory `/opt/m
 [route]
 Name=SSLDRHAQM1
 Active=true
-ListenerPort=1501
+ListenerPort=1503
 Destination=3bdf30c3-us-east.lb.appdomain.cloud
-DestinationPort=1501
+DestinationPort=1503
 SSLServer=true
 SSLServerSiteLabel=mqiptserver
 SSLServerAskClientAuth=true
@@ -1273,12 +1273,12 @@ systemctl reload mqipt-@HAMQ.service
 Verify the connection from the client
 
 ```
-[kramerro@wdc-mq-client keys]$ /opt/mqm/samp/bin/amqssslc -m DRHAQM1 -c DRHAMQ1.MQIPT -x "52.116.121.144(1501)" -k /home/kramerro/keys/mq_cloud_keys -l wdc-mq-client -s TLS_RSA_WITH_AES_256_GCM_SHA384
+[kramerro@wdc-mq-client keys]$ /opt/mqm/samp/bin/amqssslc -m SSLDRHAQM1 -c SSLDRHAMQ1.MQIPT -x "52.116.121.144(1503)" -k /home/kramerro/keys/mq_cloud_keys -l wdc-mq-client -s TLS_RSA_WITH_AES_256_GCM_SHA384
 
 Sample AMQSSSLC start
 Connecting to queue manager SSLDRHAQM1
 Using the server connection channel SSLDRHAMQ1.MQIPT
-on connection name 52.116.121.144(1501).
+on connection name 52.116.121.144(1503).
 Using SSL CipherSpec TLS_RSA_WITH_AES_256_GCM_SHA384
 Using SSL key repository stem /home/kramerro/keys/mq_cloud_keys
 Certificate Label: wdc-mq-client
