@@ -1287,6 +1287,457 @@ Connection established to queue manager SSLDRHAQM1
 Sample AMQSSSLC end
 ```
 
+## MQ to MQ and SSL encryption
+
+For the purposes of testing, we'll initially create an unencrypted connection between queues on two different MQ hosts. These are not replicated or in any sort of failover but are designed to illustrate messages being forwarded from one queue to another.
+
+Create a queue manager and start it up
+
+```
+[mqm@wdc-mq-client ~]$ crtmqm QM1 && strmqm QM1
+IBM MQ queue manager 'QM1' created.
+Directory '/var/mqm/qmgrs/QM1' created.
+The queue manager is associated with installation 'Installation1'.
+Creating or replacing default objects for queue manager 'QM1'.
+Default objects statistics : 83 created. 0 replaced. 0 failed.
+Completing setup.
+Setup completed.
+The system resource RLIMIT_NOFILE is set at an unusually low level for IBM MQ.
+IBM MQ queue manager 'QM1' starting.
+The queue manager is associated with installation 'Installation1'.
+6 log records accessed on queue manager 'QM1' during the log replay phase.
+Log replay for queue manager 'QM1' complete.
+Transaction manager state recovered for queue manager 'QM1'.
+Plain text communication is enabled.
+IBM MQ queue manager 'QM1' started using V9.2.5.0.
+```
+
+Create a transmission queue on QM1
+
+```
+[mqm@wdc-mq-client ~]$ runmqsc QM1
+5724-H72 (C) Copyright IBM Corp. 1994, 2022.
+Starting MQSC for queue manager QM1.
+
+
+define qlocal(QM2) DESCR('Transmission queue to QM2') USAGE(XMITQ)
+     1 : define qlocal(QM2) DESCR('Transmission queue to QM2') USAGE(XMITQ)
+AMQ8006I: IBM MQ queue created.
+```
+
+Create a remote receiver queue on QM1 to represent the remote queue that will live on QM2 on the remote host
+
+```
+define qremote(QUEUE.ON.QM2) DESCR('Remote queue for QM2') XMITQ(QM2) RNAME(RECEIVEQUEUE) RQMNAME(QM2)
+     1 : define qremote(QUEUE.ON.QM2) DESCR('Remote queue for QM2') XMITQ(QM2) RNAME(RECEIVEQUEUE) RQMNAME(QM2)
+AMQ8006I: IBM MQ queue created.
+```
+
+Create the sender channel on QM1
+
+```
+define channel(QM1.TO.QM2) CHLTYPE(SDR) CONNAME('10.241.0.4') TRPTYPE(TCP) XMITQ(QM2)
+     1 : define channel(QM1.TO.QM2) CHLTYPE(SDR) CONNAME('10.241.0.4') TRPTYPE(TCP) XMITQ(QM2)
+AMQ8014I: IBM MQ channel created.
+```
+
+Start up the sender channel on QM1
+
+```
+START CHANNEL(QM1.TO.QM2)
+```
+
+On our remote host, (wdc1-mq1), create a single queue
+```
+[mqm@wdc1-mq1 ssl]$ crtmqm QM2 && strmqm QM2
+IBM MQ queue manager 'QM2' created.
+Directory '/var/mqm/qmgrs/QM2' created.
+The queue manager is associated with installation 'Installation1'.
+Creating or replacing default objects for queue manager 'QM2'.
+Default objects statistics : 83 created. 0 replaced. 0 failed.
+Completing setup.
+Setup completed.
+IBM MQ queue manager 'QM2' starting.
+The queue manager is associated with installation 'Installation1'.
+6 log records accessed on queue manager 'QM2' during the log replay phase.
+Log replay for queue manager 'QM2' complete.
+Transaction manager state recovered for queue manager 'QM2'.
+Plain text communication is enabled.
+IBM MQ queue manager 'QM2' started using V9.2.5.0.
+```
+
+Create the receiver queue on the remote host (wdc1-mq1)
+
+```
+DEFINE QLOCAL(RECEIVEQUEUE) DESCR('Receiving queue')
+```
+
+Create a listener on the remote host (wdc1-mq1) called LISTENER1. In the MQSC interface, type:
+
+```
+DEFINE LISTENER(LISTENER1) TRPTYPE(TCP) PORT(1414) CONTROL(QMGR)
+START LISTENER(LISTENER1)
+```
+
+Port 1414 is the default. If we want to use anything different, we'll need to update the sender channel on QM1.
+
+Create a receiver channel on the remote host (wdc1-mq1) called QM1.TO.QM2. The channel must have the same name as the sender channel on the source queue manager.
+
+```
+[mqm@wdc1-mq1 ~]$ runmqsc QM2
+5724-H72 (C) Copyright IBM Corp. 1994, 2022.
+Starting MQSC for queue manager QM2.
+
+DEFINE CHANNEL(QM1.TO.QM2) CHLTYPE(RCVR) TRPTYPE(TCP)
+     4 : DEFINE CHANNEL(QM1.TO.QM2) CHLTYPE(RCVR) TRPTYPE(TCP)
+AMQ8014I: IBM MQ channel created.
+```
+Now start up the channel on the remote 
+
+```
+START CHANNEL(QM1.TO.QM2)
+```
+Back on the local mq host (wdc-mq-client), let's test the connection with the included sample programs. Hit enter twice to exit
+
+```
+[mqm@wdc-mq-client ~]$ /opt/mqm/samp/bin/amqsput QUEUE.ON.QM2 QM1
+Sample AMQSPUT0 start
+target queue is QUEUE.ON.QM2
+this is a test
+testing
+another message
+```
+
+On the remote host, run
+
+```
+[mqm@wdc1-mq1 ssl]$ amqsget RECEIVEQUEUE QM2
+Sample AMQSGET0 start
+message <this is a test>
+message <testing>
+message <another message>
+no more messages
+Sample AMQSGET0 end
+```
+
+We've now verified that the queues are able to send and receive.
+
+## Connecting two queue managers via SSL/TLS and self-signed certs
+
+Create a keystore on the local host (wdc-mq-client)
+```
+[mqm@wdc-mq-client ssl]$ runmqakm -keydb -create -db /var/mqm/qmgrs/QM1/ssl/key.kdb -type cms -pw 'p@ssw0rd' -stash
+```
+
+Create a keystore on the remote host (wdc1-mq1)
+```
+[mqm@wdc1-mq1 ssl]$ runmqakm -keydb -create -db /var/mqm/qmgrs/QM2/ssl/key.kdb -type cms -pw 'p@ssw0rd' -stash
+```
+
+Create a self-signed cert on the local host (wdc-mq-client). For production envs, this should be an actual signed cert.
+```
+[mqm@wdc-mq-client ssl]$ runmqakm -cert -create -db /var/mqm/qmgrs/QM1/ssl/key.kdb -stashed -label QM1 -dn "cn=QM1,O=IBM,C=US,OU=SSL For MQ,ST=MA" -size 2048 -x509version 3 -expire 7300 -sig_alg SHA256WithRSA
+```
+
+Create a self-signed cert on the remote host (wdc1-mq1). For production envs, this should be an actual signed cert.
+```
+[mqm@wdc1-mq1 ssl]$ runmqakm -cert -create -db /var/mqm/qmgrs/QM2/ssl/key.kdb -stashed -label QM2 -dn "cn=QM2,O=IBM,C=US,OU=SSL For MQ,ST=MA" -size 2048 -x509version 3 -expire 7300 -sig_alg SHA256WithRSA
+```
+
+Extract the public cert from the local host (wdc-mq-client)
+```
+[mqm@wdc-mq-client ssl]$ runmqakm -cert -extract -db /var/mqm/qmgrs/QM1/ssl/key.kdb -stashed -label QM1 -target QM1_public.txt
+```
+
+Extract the public cert from the remote host (wdc1-mq1)
+```
+[mqm@wdc1-mq1 ssl]$ runmqakm -cert -extract -db /var/mqm/qmgrs/QM2/ssl/key.kdb -stashed -label QM2 -target QM2_public.txt
+```
+
+Copy the QM1_public.txt to the remote MQ (wdc1-mq1) host and import it into the keystore
+```
+[mqm@wdc1-mq1 ssl]$ runmqakm -cert -add -db /var/mqm/qmgrs/QM2/ssl/key.kdb -stashed -label QM1 -file QM1_public.txt
+``` 
+
+Copy the QM2_public.txt to the local host (wdc-mq-client) and import it into the keystore
+```
+[mqm@wdc-mq-client ssl]$ runmqakm -cert -add -db /var/mqm/qmgrs/QM1/ssl/key.kdb -stashed -label QM2 -file QM2_public.txt
+```
+
+On the local host (wdc-mq-client) update the sender channel to use SSL, then refresh and make sure the channel is started
+```
+[mqm@wdc-mq-client ssl]$ runmqsc QM1
+
+5724-H72 (C) Copyright IBM Corp. 1994, 2022.
+Starting MQSC for queue manager QM1.
+
+alter channel(QM1.TO.QM2) CHLTYPE(SDR) TRPTYPE(TCP) SSLCIPH('TLS_RSA_WITH_AES_128_CBC_SHA256') DESCR('Sender channel using TLS from QM1 to QM2')
+     5 : alter channel(QM1.TO.QM2) CHLTYPE(SDR) TRPTYPE(TCP) SSLCIPH('TLS_RSA_WITH_AES_128_CBC_SHA256') DESCR('Sender channel using TLS from QM1 to QM2')
+AMQ8016I: IBM MQ channel changed.
+
+refresh qmgr type(configev) object(channel)
+start channel(QM1.TO.QM2)
+
+```
+
+On the remote host (wdc1-mq1) update the reciever channel to use SSL
+```
+[mqm@wdc1-mq1 ssl]$ runmqsc QM2
+5724-H72 (C) Copyright IBM Corp. 1994, 2022.
+Starting MQSC for queue manager QM2.
+
+
+alter channel(QM1.TO.QM2) CHLTYPE(RCVR) TRPTYPE(TCP) SSLCIPH('TLS_RSA_WITH_AES_128_CBC_SHA256') SSLCAUTH(REQUIRED) DESCR('Receiver channel using TLS from QM1 to QM2') CERTLABL('QM2')
+     2 : alter channel(QM1.TO.QM2) CHLTYPE(RCVR) TRPTYPE(TCP) SSLCIPH('TLS_RSA_WITH_AES_128_CBC_SHA256') SSLCAUTH(REQUIRED) DESCR('Receiver channel using TLS from QM1 to QM2')
+AMQ8016I: IBM MQ channel changed.
+
+refresh qmgr type(configev) object(channel)
+start channel(QM1.TO.QM2)
+```
+
+Alter the QMGR on the remote host (wdc1-mq1) to point to the correct cert label we created
+```
+[mqm@wdc1-mq1 ssl]$ runmqsc QM2
+5724-H72 (C) Copyright IBM Corp. 1994, 2022.
+Starting MQSC for queue manager QM2.
+
+alter qmgr certlabl('QM2')
+refresh qmgr type(configev) object(all)
+```
+
+Alter the QMGR on the local host (wdc1-mq1) to point to the correct cert label we created
+```
+[mqm@wdc-mq-client ssl]$ runmqsc QM1
+5724-H72 (C) Copyright IBM Corp. 1994, 2022.
+Starting MQSC for queue manager QM2.
+
+alter qmgr certlabl('QM1')
+refresh qmgr type(configev) object(all)
+```
+
+Back on the local, let's test the connection with the included sample programs. Hit enter twice to exit
+
+```
+[mqm@wdc-mq-client ~]$ /opt/mqm/samp/bin/amqsput QUEUE.ON.QM2 QM1
+Sample AMQSPUT0 start
+target queue is QUEUE.ON.QM2
+this is a test
+testing
+another message
+```
+
+On the remote host, run
+
+```
+[mqm@wdc1-mq1 ssl]$ amqsget RECEIVEQUEUE QM2
+Sample AMQSGET0 start
+message <Sample AMQSPUT0 start>
+message <target queue is QUEUE.ON.QM2>
+message <this is a test>
+message <testing>
+message <another message>
+no more messages
+Sample AMQSGET0 end
+```
+We've now verified that messages are being forwarded between queues via a TLS connection. Let's check our peering on local queue
+
+```
+[mqm@wdc-mq-client ssl]$ runmqsc QM1
+
+DISPLAY CHS(QM1.TO.QM2) SSLPEER SSLCERTI
+
+    10 : DISPLAY CHS(QM1.TO.QM2) SSLPEER SSLCERTI
+AMQ8417I: Display Channel Status details.
+   CHANNEL(QM1.TO.QM2)                     CHLTYPE(SDR)
+   CONNAME(10.241.0.4(1414))               CURRENT
+   RQMNAME(QM2)
+   SSLCERTI(CN=QM2,OU=SSL For MQ,O=IBM,ST=MA,C=US)
+   SSLPEER(SERIALNUMBER=5E:C8:76:52:DA:81:96:5B,CN=QM2,OU=SSL For MQ,O=IBM,ST=MA,C=US)
+   STATUS(RUNNING)                         SUBSTATE(MQGET)
+   XMITQ(QM2)
+```
+
+Check our peering on the remote queue
+
+```
+[mqm@wdc1-mq1 errors]$ runmqsc QM2
+5724-H72 (C) Copyright IBM Corp. 1994, 2022.
+Starting MQSC for queue manager QM2.
+
+
+DISPLAY CHS(QM1.TO.QM2) SSLPEER SSLCERTI
+     1 : DISPLAY CHS(QM1.TO.QM2) SSLPEER SSLCERTI
+AMQ8417I: Display Channel Status details.
+   CHANNEL(QM1.TO.QM2)                     CHLTYPE(RCVR)
+   CONNAME(10.241.2.5)                     CURRENT
+   RQMNAME(QM1)
+   SSLCERTI(CN=QM1,OU=SSL For MQ,O=IBM,ST=MA,C=US)
+   SSLPEER(SERIALNUMBER=78:40:26:54:E5:D4:80:E4,CN=QM1,OU=SSL For MQ,O=IBM,ST=MA,C=US)
+   STATUS(RUNNING)                         SUBSTATE(RECEIVE)
+
+```
+## Denying connections based on SSLPEER
+
+For this we are going to the remote queue and setting an SSL Peer setting for QM2
+
+On the remote host, start up the runmqsc session and set the SSLPEER value
+
+```
+[mqm@wdc1-mq1 errors]$ runmqsc QM2
+5724-H72 (C) Copyright IBM Corp. 1994, 2022.
+Starting MQSC for queue manager QM2.
+
+alter channel(QM1.TO.QM2) CHLTYPE(RCVR) SSLPEER('CN=John Cena, OU=Test, O=IBM, C=GB')
+```
+
+Now attempt to connect and run the test from the local mq host
+
+```
+[mqm@wdc-mq-client errors]$ /opt/mqm/samp/bin/amqsput QUEUE.ON.QM2 QM1
+Sample AMQSPUT0 start
+target queue is QUEUE.ON.QM2
+test
+test2
+test3
+
+Sample AMQSPUT0 end`
+
+```
+
+These messages will not show up on our remote host. Instead we can see the following error in the AMQ001.log
+
+```
+06/28/2022 06:23:34 PM - Process(2051233.5) User(mqm) Program(amqrmppa)
+                    Host(wdc1-mq1) Installation(Installation1)
+                    VRMF(9.2.5.0) QMgr(QM2)
+                    Time(2022-06-28T18:23:34.836Z)
+                    RemoteHost(10.241.2.5)
+                    CommentInsert1(QM1.TO.QM2)
+                    CommentInsert2(SERIALNUMBER=78:40:26:54:E5:D4:80:E4,CN=QM1,OU=SSL For MQ,O=IBM,ST=MA,C=US)
+                    CommentInsert3(10.241.2.5)
+
+AMQ9636E: SSL distinguished name does not match peer name, channel
+'QM1.TO.QM2'.
+
+EXPLANATION:
+The distinguished name, 'SERIALNUMBER=78:40:26:54:E5:D4:80:E4,CN=QM1,OU=SSL For
+MQ,O=IBM,ST=MA,C=US', contained in the SSL certificate for the remote end of
+the channel does not match the local SSL peer name for channel 'QM1.TO.QM2'.
+The distinguished name at the remote host '10.241.2.5' must match the peer name
+specified (which can be generic) before the channel can be started.
+ACTION:
+If this remote system should be allowed to connect, either change the SSL peer
+name specification for the local channel so that it matches the distinguished
+name in the SSL certificate for the remote end of the channel, or obtain the
+correct certificate for the remote end of the channel.
+
+This error might indicate that the remote end of the channel is configured to
+use the wrong certificate. Check the certificate label for the remote end of
+the channel.
+
+Restart the channel.
+```
+
+If we remove the SSLPEER setting for that channel on the remote, we can see that connectivity should resume.
+
+```
+display channel(QM1.TO.QM2)
+
+     1 : display channel(QM1.TO.QM2)
+AMQ8414I: Display Channel details.
+   CHANNEL(QM1.TO.QM2)                     CHLTYPE(RCVR)
+   ALTDATE(2022-06-28)                     ALTTIME(18.21.00)
+   BATCHSZ(50)                             CERTLABL(QM2)
+   COMPHDR(NONE)                           COMPMSG(NONE)
+   DESCR(Receiver channel using TLS from QM1 to QM2)
+   HBINT(300)                              KAINT(AUTO)
+   MAXMSGL(4194304)                        MCAUSER( )
+   MONCHL(QMGR)                            MRDATA( )
+   MREXIT( )                               MRRTY(10)
+   MRTMR(1000)                             MSGDATA( )
+   MSGEXIT( )                              NPMSPEED(FAST)
+   PUTAUT(DEF)                             RCVDATA( )
+   RCVEXIT( )                              RESETSEQ(NO)
+   SCYDATA( )                              SCYEXIT( )
+   SENDDATA( )                             SENDEXIT( )
+   SEQWRAP(999999999)                      SSLCAUTH(REQUIRED)
+   SSLCIPH(TLS_RSA_WITH_AES_128_CBC_SHA256)
+   SSLPEER(CN=John Cena, OU=Test, O=IBM, C=GB)
+   STATCHL(QMGR)                           TRPTYPE(TCP)
+   USEDLQ(YES)
+   
+alter channel(QM1.TO.QM2) CHLTYPE(RCVR) SSLPEER('')
+
+     2 : alter channel(QM1.TO.QM2) CHLTYPE(RCVR) SSLPEER('')
+AMQ8016I: IBM MQ channel changed.
+display channel(QM1.TO.QM2)
+     3 : display channel(QM1.TO.QM2)
+AMQ8414I: Display Channel details.
+   CHANNEL(QM1.TO.QM2)                     CHLTYPE(RCVR)
+   ALTDATE(2022-06-28)                     ALTTIME(18.31.34)
+   BATCHSZ(50)                             CERTLABL(QM2)
+   COMPHDR(NONE)                           COMPMSG(NONE)
+   DESCR(Receiver channel using TLS from QM1 to QM2)
+   HBINT(300)                              KAINT(AUTO)
+   MAXMSGL(4194304)                        MCAUSER( )
+   MONCHL(QMGR)                            MRDATA( )
+   MREXIT( )                               MRRTY(10)
+   MRTMR(1000)                             MSGDATA( )
+   MSGEXIT( )                              NPMSPEED(FAST)
+   PUTAUT(DEF)                             RCVDATA( )
+   RCVEXIT( )                              RESETSEQ(NO)
+   SCYDATA( )                              SCYEXIT( )
+   SENDDATA( )                             SENDEXIT( )
+   SEQWRAP(999999999)                      SSLCAUTH(REQUIRED)
+   SSLCIPH(TLS_RSA_WITH_AES_128_CBC_SHA256)
+   SSLPEER( )                              STATCHL(QMGR)
+   TRPTYPE(TCP)                            USEDLQ(YES)
+
+refresh qmgr type(configev) object(channel)
+
+     4 : refresh qmgr type(configev) object(channel)
+AMQ8724I: Refresh IBM MQ Queue Manager accepted.
+```
+
+So what can we do with SSLPEER?
+
+We can lock the receiver channel to one certificate by simply storing the CN info of our client cert into the SSLPEER field.
+
+```
+[mqm@wdc1-mq1 errors]$ runmqsc QM2
+5724-H72 (C) Copyright IBM Corp. 1994, 2022.
+Starting MQSC for queue manager QM2.
+
+
+DISPLAY CHS(QM1.TO.QM2) SSLPEER SSLCERTI
+     1 : DISPLAY CHS(QM1.TO.QM2) SSLPEER SSLCERTI
+AMQ8417I: Display Channel Status details.
+   CHANNEL(QM1.TO.QM2)                     CHLTYPE(RCVR)
+   CONNAME(10.241.2.5)                     CURRENT
+   RQMNAME(QM1)
+   SSLCERTI(CN=QM1,OU=SSL For MQ,O=IBM,ST=MA,C=US)
+   SSLPEER(SERIALNUMBER=78:40:26:54:E5:D4:80:E4,CN=QM1,OU=SSL For MQ,O=IBM,ST=MA,C=US)
+   STATUS(RUNNING)                         SUBSTATE(RECEIVE)
+```
+
+The SSLPEER setting above is what was read from the client self-signed cert. We can take that value and apply it to the channel itself and then any future certs will be rejected. So not everybody can connect even if their public cert is in the remote host keystore.
+
+```
+[mqm@wdc1-mq1 errors]$ runmqsc QM2
+5724-H72 (C) Copyright IBM Corp. 1994, 2022.
+Starting MQSC for queue manager QM2.
+
+
+alter channel(QM1.TO.QM2) CHLTYPE(RCVR) SSLPEER('SERIALNUMBER=78:40:26:54:E5:D4:80:E4,CN=QM1,OU=SSL For MQ,O=IBM,ST=MA,C=US')
+     1 : alter channel(QM1.TO.QM2) CHLTYPE(RCVR) SSLPEER('SERIALNUMBER=78:40:26:54:E5:D4:80:E4,CN=QM1,OU=SSL For MQ,O=IBM,ST=MA,C=US')
+AMQ8016I: IBM MQ channel changed.
+refresh qmgr type(configev) object(channel)
+     2 : refresh qmgr type(configev) object(channel)
+AMQ8724I: Refresh IBM MQ Queue Manager accepted.
+quit
+```
+
+
 
 Referance Links:
 
