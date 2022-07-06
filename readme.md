@@ -1,23 +1,47 @@
-# Solution Document 
+# Solution Document
 ### IBM MQ RDQM HADR w/ MQIPT
 <img align="right" src="https://user-images.githubusercontent.com/95059/166857681-99c92cdc-fa62-4141-b903-969bd6ec1a41.png" width="491" >
 
-<!-- vscode-markdown-toc -->
-* 1. [Background](#Background)
-* 2. [Goals](#Goals)
-* 3. [Overview](#Overview)
-* 4. [Building Block View](#BuildingBlockView)
-* 5. [Deployment](#Deployment)
-* 6. [Security](#Security)
-* 7. [Cost](#Cost)
-* 9. [Testing](#Testing)
 
-<!-- vscode-markdown-toc-config
-	numbering=true
-	autoSave=true
-	/vscode-markdown-toc-config -->
-<!-- /vscode-markdown-toc -->
-
+- [Solution Document](#solution-document)
+		- [IBM MQ RDQM HADR w/ MQIPT](#ibm-mq-rdqm-hadr-w-mqipt)
+- [Introduction and Goals](#introduction-and-goals)
+	- [1. <a name='Background'></a>Background](#1-background)
+	- [2. <a name='Goals'></a>Goals](#2-goals)
+	- [Goals](#goals)
+- [Solution Strategy](#solution-strategy)
+	- [3. <a name='Overview'></a>Overview](#3-overview)
+	- [4. <a name='BuildingBlockView'></a>Building Block View](#4-building-block-view)
+	- [5. <a name='Deployment'></a>Deployment](#5-deployment)
+	- [Manual Deployment](#manual-deployment)
+		- [Installing and Configuring IBM MQ and RDQM](#installing-and-configuring-ibm-mq-and-rdqm)
+		- [Installation of MQ](#installation-of-mq)
+		- [Host layout](#host-layout)
+		- [System preparation](#system-preparation)
+		- [Installing MQ](#installing-mq)
+		- [**Installing RDQM**](#installing-rdqm)
+		- [**Creating A Disaster Recovery Queue**](#creating-a-disaster-recovery-queue)
+			- [**Creating DRHAQM1 With Primary in DC**](#creating-drhaqm1-with-primary-in-dc)
+		- [Installing MQ IPT](#installing-mq-ipt)
+		- [Enable MQIPT as a system service](#enable-mqipt-as-a-system-service)
+		- [**Templating the service file for multiple MQIPT instances**](#templating-the-service-file-for-multiple-mqipt-instances)
+	- [6. <a name='Security'></a>Security](#6-security)
+		- [SSL configuration for MQ and MQ-IPT](#ssl-configuration-for-mq-and-mq-ipt)
+			- [Creating the new queue manager](#creating-the-new-queue-manager)
+			- [Configuring OpenLDAP in a container](#configuring-openldap-in-a-container)
+			- [Configuring SSL in Queue Manager and client](#configuring-ssl-in-queue-manager-and-client)
+			- [Setting the channel auth for SSL](#setting-the-channel-auth-for-ssl)
+	- [Configuring MQ-IPT for SSLServer/Client](#configuring-mq-ipt-for-sslserverclient)
+	- [MQ to MQ and SSL encryption](#mq-to-mq-and-ssl-encryption)
+	- [Connecting two queue managers via SSL/TLS and self-signed certs](#connecting-two-queue-managers-via-ssltls-and-self-signed-certs)
+	- [Denying connections based on SSLPEER](#denying-connections-based-on-sslpeer)
+	- [9. <a name='Testing'></a>Testing](#9-testing)
+		- [Testing Tools](#testing-tools)
+	- [Failover testing for MQ HADR and RDQM](#failover-testing-for-mq-hadr-and-rdqm)
+		- [Setup](#setup)
+		- [Testing with persistent messages with syncpoint](#testing-with-persistent-messages-with-syncpoint)
+		- [Regional failover testing](#regional-failover-testing)
+- [Architecture Decisions](#architecture-decisions)
 # Introduction and Goals
 
 ##  1. <a name='Background'></a>Background
@@ -475,7 +499,7 @@ The queue service should be accessible via port `1501` on the primary node in th
 
 ### Installing MQ IPT
 
-- SSH into your MQIPT server(s). 
+- SSH into your MQIPT server(s).
 - Download and stage the MQIPT Software from [IBM Fix Central](https://www.ibm.com/support/fixcentral/swg/selectFixes?parent=ibm%7EWebSphere&product=ibm/WebSphere/WebSphere+MQ&release=9.2.0.0&platform=All&function=all)
 
 In our instance we are downloading version `9.2.5.0-IBM-MQIPT-LinuxX64`
@@ -500,7 +524,7 @@ tar zxvf ~/9.2.5.0-IBM-MQIPT-LinuxX64.tar.gz
 chmod -R a-w /opt/mqipt/installation1/mqipt
 ```
 
-- Append the following to your `~/.bashrc` file for your MQIPT user 
+- Append the following to your `~/.bashrc` file for your MQIPT user
 
 ```
 MQIPT_PATH=/opt/mqipt/installation1/mqipt
@@ -542,7 +566,7 @@ DestinationPort=1502
 In this implementation we are creating two `[route]` entries for the two different regions that correspond to our 2 queues. Recall that we had previously created `DRHAQM1` and `DRHAQM2` to be listening on ports `1501` and `1502` respectively. Our loadbalanacer was also configured to forward traffic to these ports.
 
 
-- Start MQIPT 
+- Start MQIPT
 
 ```
 mqipt /opt/mqipt/installation1/mqipt -n HAMQ
@@ -767,7 +791,7 @@ start listener(LISTENER)
 
 _If you already have an Active Directory server or an LDAP host, you can skip this next part._
 
-Now let's get ldap going. For that, we're gonna spin up an ldap container on a docker host that's on the same networks as your clusters. Since this is a regional failover HADR cluster, you should probably have a second LDAP host running in this DR region and have replication for LDAP set up, but we won't go into that here. 
+Now let's get ldap going. For that, we're gonna spin up an ldap container on a docker host that's on the same networks as your clusters. Since this is a regional failover HADR cluster, you should probably have a second LDAP host running in this DR region and have replication for LDAP set up, but we won't go into that here.
 
 Let's create some persistent file storage directories for the container to use first on our docker host:
 
@@ -842,7 +866,7 @@ docker run \
 --detach osixia/openldap:latest \
 --copy-service
 ```
-For our purposes, we set the domain to `ibm.com` and then set an admin password of `p@ssw0rd`. 
+For our purposes, we set the domain to `ibm.com` and then set an admin password of `p@ssw0rd`.
 
 Now we're going to configure our new queue mgr to auth with ldap. First we need to create the AUTHINFO object that will contain our ldap server info. This must be run by a member of the mqm group.
 
@@ -856,7 +880,7 @@ DEFINE AUTHINFO(SSLDRHAQM1.IDPW.LDAP) AUTHTYPE(IDPWLDAP) ADOPTCTX(YES) CONNAME('
 Above we've created an authinfo object. While everything above is needed, here are the most important settings:
 
 - AUTHINFO - we've named it `SSLDRHAQM1.IDPQ.LDAP`
-- AUTHTYPE - `IDPWLDAP` Connection authentication user ID and password checking is done using an LDAP server. 
+- AUTHTYPE - `IDPWLDAP` Connection authentication user ID and password checking is done using an LDAP server.
 - ADOPTCTX - `YES` - This means authenticated users are used for authorization checks, shown on administrative displays, and appear in messages.
 - CONNAME - `10.241.2.5(389)` This the actual ip address of our docker host where our ldap container is running
 - CHCKLOCL - This attribute determines the authentication requirements for locally bound applications, and is valid only for an AUTHTYPE of `IDPWOS` or `IDPWLDAP`. We are setting this to `OPTIONAL` which means locally bound applications are not required to provide a user ID and password. This is ideal for testing purposes.
@@ -926,12 +950,12 @@ AMQ8408I: Display Queue Manager details.
    SSLKEYR(/var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/key)
 
 ```
-This is the default entry for the queue manager. So initially, we want to create a keyfile db. This is going to live at the path we found above. This is important since our example queue manager is replicated via RDMQ so it this keyfile needs to be on the replicated volume. 
+This is the default entry for the queue manager. So initially, we want to create a keyfile db. This is going to live at the path we found above. This is important since our example queue manager is replicated via RDMQ so it this keyfile needs to be on the replicated volume.
 
 So first, let's create a key repo on the MQ primary node:
 
 ```
-mqm@wdc1-mq1 ~]$ runmqakm -keydb -create -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile -pw 'p@ssw0rd' -type cms -stash 
+mqm@wdc1-mq1 ~]$ runmqakm -keydb -create -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile -pw 'p@ssw0rd' -type cms -stash
 ```
 This should create the following files:
 
@@ -942,7 +966,7 @@ ssldrhaqm1KeyFile.rdb
 ssldrhaqm1KeyFile.sth
 ```
 
-Very important! Make sure the directory and file permissions are correct for the generated key db! The file should be owned by the user running that queue. Ig `mqm` as an example. Also important to remember, while you'll reference the keyfile like `/var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile` in the queue manager settings, the file itself **must** have the `.kdb` suffix. 
+Very important! Make sure the directory and file permissions are correct for the generated key db! The file should be owned by the user running that queue. Ig `mqm` as an example. Also important to remember, while you'll reference the keyfile like `/var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile` in the queue manager settings, the file itself **must** have the `.kdb` suffix.
 
 Now we can populate the keyfile with the default CA signers with the following commands:
 
@@ -951,7 +975,7 @@ mqm@wdc1-mq1 ~]$ runmqckm -cert -populate -db /var/mqm/vols/ssldrhaqm1/qmgr/ssld
 mqm@wdc1-mq1 ~]$ runmqckm -cert -populate -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile.kdb -stashed -label thawte
 mqm@wdc1-mq1 ~]$ runmqckm -cert -populate -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile.kdb -stashed -label verisign
 ```
-Should be able to verify that with 
+Should be able to verify that with
 ```
 mqm@wdc1-mq1 ~]$ runmqckm -cert -list -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile.kdb -stashed
 
@@ -1004,13 +1028,13 @@ So breaking down the above command:
 - `-stashed` - when we created our keystore we created a .sth file that contains the password encrypted. This allows us to pass the `-stashed` argument.
 - `-label` - We're gonna label this with our queue manager name
 - `-dn` - This is our distinguished name. We're leading off with the name of the queue manager.
-- `-size` - we're setting this to 2048 
+- `-size` - we're setting this to 2048
 - `-x509version` - Setting this to 3. This is the default anyway.
 - `-expire` - Don't want this cert to expire for 7300 days which is the maximum supported by this command.
-- `-sig_alg` -  We are going with `SHA256WithRSA` 
+- `-sig_alg` -  We are going with `SHA256WithRSA`
 - `-type` - We're going with cms since that's the keystore type
 
-We can verify the certificate creation with 
+We can verify the certificate creation with
 ```
 mqm@wdc1-mq1 ~]$ runmqckm -cert -list -db /var/mqm/vols/ssldrhaqm1/qmgr/ssldrhaqm1/ssl/ssldrhaqm1KeyFile.kdb -stashed | grep ssldrhaqm1certlabel
 
@@ -1041,15 +1065,15 @@ set CHLAUTH(SSLDRHAQM1.MQIPT) TYPE(USERMAP) CLNTUSER('mqadmin') USERSRC(MAP) MCA
 alter channel(SSLDRHAQM1.MQIPT) CHLTYPE(SVRCONN) MCAUSER('mqadmin') CERTLABL('ssldrhaqm1certlabel') SSLCAUTH(REQUIRED) SSLCIPH(ANY) TRPTYPE(TCP)
 REFRESH SECURITY
 REFRESH QMGR TYPE(CONFIGEV) OBJECT(AUTHREC)
-REFRESH SECURITY TYPE(CONNAUTH)  
-REFRESH SECURITY TYPE(SSL)  
+REFRESH SECURITY TYPE(CONNAUTH)
+REFRESH SECURITY TYPE(SSL)
 REFRESH SECURITY TYPE(AUTHSERV)
 ```
 We'll set this so the mqadmin user can authenticate in
 
 Let's configure MQIPT for SSLProxy
 
-On our MQIPT host, edit the `/opt/mqipt/installation1/mqipt/HAMQ/mqipt.conf` file and add the route entry. 
+On our MQIPT host, edit the `/opt/mqipt/installation1/mqipt/HAMQ/mqipt.conf` file and add the route entry.
 
 ```
 [route]
@@ -1136,8 +1160,8 @@ Enter password:
 Starting MQSC for queue manager SSLDRHAQM1.
 
 REFRESH QMGR TYPE(CONFIGEV) OBJECT(AUTHREC)
-REFRESH SECURITY TYPE(CONNAUTH)  
-REFRESH SECURITY TYPE(SSL)  
+REFRESH SECURITY TYPE(CONNAUTH)
+REFRESH SECURITY TYPE(SSL)
 REFRESH SECURITY TYPE(AUTHSERV)
 ```
 
@@ -1197,8 +1221,8 @@ Refresh security for that queue manager on the primary cluster node
 [mqm@wdc1-mq1 ~]$ runmqsc SSLDRHAQM1
 
 REFRESH QMGR TYPE(CONFIGEV) OBJECT(AUTHREC)
-REFRESH SECURITY TYPE(CONNAUTH)  
-REFRESH SECURITY TYPE(SSL)  
+REFRESH SECURITY TYPE(CONNAUTH)
+REFRESH SECURITY TYPE(SSL)
 REFRESH SECURITY TYPE(AUTHSERV)
 ```
 
@@ -1392,7 +1416,7 @@ DEFINE CHANNEL(QM1.TO.QM2) CHLTYPE(RCVR) TRPTYPE(TCP)
      4 : DEFINE CHANNEL(QM1.TO.QM2) CHLTYPE(RCVR) TRPTYPE(TCP)
 AMQ8014I: IBM MQ channel created.
 ```
-Now start up the channel on the remote 
+Now start up the channel on the remote
 
 ```
 START CHANNEL(QM1.TO.QM2)
@@ -1457,7 +1481,7 @@ Extract the public cert from the remote host (wdc1-mq1)
 Copy the QM1_public.txt to the remote MQ (wdc1-mq1) host and import it into the keystore
 ```
 [mqm@wdc1-mq1 ssl]$ runmqakm -cert -add -db /var/mqm/qmgrs/QM2/ssl/key.kdb -stashed -label QM1 -file QM1_public.txt
-``` 
+```
 
 Copy the QM2_public.txt to the local host (wdc-mq-client) and import it into the keystore
 ```
@@ -1665,7 +1689,7 @@ AMQ8414I: Display Channel details.
    SSLPEER(CN=John Cena, OU=Test, O=IBM, C=GB)
    STATCHL(QMGR)                           TRPTYPE(TCP)
    USEDLQ(YES)
-   
+
 alter channel(QM1.TO.QM2) CHLTYPE(RCVR) SSLPEER('')
 
      2 : alter channel(QM1.TO.QM2) CHLTYPE(RCVR) SSLPEER('')
@@ -1748,14 +1772,10 @@ https://www.ibm.com/docs/en/ibm-mq/9.0?topic=tls-configuring-security-mq
 https://www.ibm.com/docs/en/ibm-mq/9.0?topic=securing-planning-your-security-requirements
 
 https://www.ibm.com/docs/en/ibm-mq/9.0?topic=mechanisms-message-security-in-mq
-
-
-##  7. <a name='Cost'></a>Cost
-
 ##  9. <a name='Testing'></a>Testing
 
 ### Testing Tools
--  [MQ Toolkit for Mac][https://developer.ibm.com/tutorials/mq-macos-dev/] comes with sample client programs to test. 
+-  [MQ Toolkit for Mac][https://developer.ibm.com/tutorials/mq-macos-dev/] comes with sample client programs to test.
 
 ## Failover testing for MQ HADR and RDQM
 We have two avenues for testing failover:
@@ -1815,7 +1835,7 @@ DEFINE listener(LISTENER) trptype(tcp) control(qmgr) port(1502)
 start listener(LISTENER)
 QUIT
 ```
-	
+
 We configure our settings on our MQIPT host
 
 ```
@@ -2180,7 +2200,7 @@ Destination=e8deec77-us-south.lb.appdomain.cloud
 DestinationPort=1502
 ```
 
-We are going to change the Destination for DRHAMQ1 to point to the load balancer in Dallas. 
+We are going to change the Destination for DRHAMQ1 to point to the load balancer in Dallas.
 
 ```
 [route]
