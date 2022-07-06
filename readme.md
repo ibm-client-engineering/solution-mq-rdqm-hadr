@@ -1,10 +1,9 @@
-# Solution Document
-### IBM MQ RDQM HADR w/ MQIPT
+<h1>IBM Client Engineering - Solution Document</h1>
+
+<h2>IBM MQ RDQM HADR w/ MQIPT</h2>
 <img align="right" src="https://user-images.githubusercontent.com/95059/166857681-99c92cdc-fa62-4141-b903-969bd6ec1a41.png" width="491" >
 
 
-- [Solution Document](#solution-document)
-		- [IBM MQ RDQM HADR w/ MQIPT](#ibm-mq-rdqm-hadr-w-mqipt)
 - [Introduction and Intent](#introduction-and-intent)
 	- [Background and Intent](#background-and-intent)
 - [Solution Strategy](#solution-strategy)
