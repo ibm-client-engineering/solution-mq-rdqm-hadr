@@ -5,78 +5,62 @@
 
 - [Solution Document](#solution-document)
 		- [IBM MQ RDQM HADR w/ MQIPT](#ibm-mq-rdqm-hadr-w-mqipt)
-- [Introduction and Goals](#introduction-and-goals)
-	- [1. <a name='Background'></a>Background](#1-background)
-	- [2. <a name='Goals'></a>Goals](#2-goals)
-	- [Goals](#goals)
+- [Introduction and Intent](#introduction-and-intent)
+	- [Background and Intent](#background-and-intent)
 - [Solution Strategy](#solution-strategy)
-	- [3. <a name='Overview'></a>Overview](#3-overview)
-	- [4. <a name='BuildingBlockView'></a>Building Block View](#4-building-block-view)
-	- [5. <a name='Deployment'></a>Deployment](#5-deployment)
+	- [Overview](#overview)
+	- [Building Block View](#building-block-view)
+	- [Deployment](#deployment)
 	- [Manual Deployment](#manual-deployment)
 		- [Installing and Configuring IBM MQ and RDQM](#installing-and-configuring-ibm-mq-and-rdqm)
 		- [Installation of MQ](#installation-of-mq)
-		- [Host layout](#host-layout)
-		- [System preparation](#system-preparation)
-		- [Installing MQ](#installing-mq)
-		- [**Installing RDQM**](#installing-rdqm)
-		- [**Creating A Disaster Recovery Queue**](#creating-a-disaster-recovery-queue)
-			- [**Creating DRHAQM1 With Primary in DC**](#creating-drhaqm1-with-primary-in-dc)
-		- [Installing MQ IPT](#installing-mq-ipt)
-		- [Enable MQIPT as a system service](#enable-mqipt-as-a-system-service)
-		- [**Templating the service file for multiple MQIPT instances**](#templating-the-service-file-for-multiple-mqipt-instances)
-	- [6. <a name='Security'></a>Security](#6-security)
+			- [Host layout](#host-layout)
+			- [System preparation](#system-preparation)
+			- [Installing MQ](#installing-mq)
+		- [Installing RDQM](#installing-rdqm)
+		- [Creating A Disaster Recovery Queue](#creating-a-disaster-recovery-queue)
+			- [Creating DRHAQM1 With Primary in DC](#creating-drhaqm1-with-primary-in-dc)
+		- [Installing MQIPT](#installing-mqipt)
+			- [Enable MQIPT as a system service](#enable-mqipt-as-a-system-service)
+			- [Templating the service file for multiple MQIPT instances](#templating-the-service-file-for-multiple-mqipt-instances)
+	- [Security](#security)
 		- [SSL configuration for MQ and MQ-IPT](#ssl-configuration-for-mq-and-mq-ipt)
 			- [Creating the new queue manager](#creating-the-new-queue-manager)
 			- [Configuring OpenLDAP in a container](#configuring-openldap-in-a-container)
 			- [Configuring SSL in Queue Manager and client](#configuring-ssl-in-queue-manager-and-client)
 			- [Setting the channel auth for SSL](#setting-the-channel-auth-for-ssl)
-	- [Configuring MQ-IPT for SSLServer/Client](#configuring-mq-ipt-for-sslserverclient)
-	- [MQ to MQ and SSL encryption](#mq-to-mq-and-ssl-encryption)
-	- [Connecting two queue managers via SSL/TLS and self-signed certs](#connecting-two-queue-managers-via-ssltls-and-self-signed-certs)
-	- [Denying connections based on SSLPEER](#denying-connections-based-on-sslpeer)
-	- [9. <a name='Testing'></a>Testing](#9-testing)
+		- [Configuring MQ-IPT for SSLServer/Client](#configuring-mq-ipt-for-sslserverclient)
+		- [MQ to MQ and SSL encryption](#mq-to-mq-and-ssl-encryption)
+		- [Connecting two queue managers via SSL/TLS and self-signed certs](#connecting-two-queue-managers-via-ssltls-and-self-signed-certs)
+		- [Denying connections based on SSLPEER](#denying-connections-based-on-sslpeer)
+	- [Testing](#testing)
 		- [Testing Tools](#testing-tools)
 	- [Failover testing for MQ HADR and RDQM](#failover-testing-for-mq-hadr-and-rdqm)
 		- [Setup](#setup)
 		- [Testing with persistent messages with syncpoint](#testing-with-persistent-messages-with-syncpoint)
 		- [Regional failover testing](#regional-failover-testing)
-- [Architecture Decisions](#architecture-decisions)
-# Introduction and Goals
-
-##  1. <a name='Background'></a>Background
-
-
-##  2. <a name='Goals'></a>Goals
-The goal of this project is to demonstrate the following proposed topologies in a hybrid multi-cloud scenario:
-- Setting up architectures, configurations and standards for distributed app rotation
-- Guaranteed message delivery
-- Overall guidance on security exits
-- Delivery over other mechanisms, not just MQ server
-- Multiple availability zones across multiple clouds
--
-Doing this would be great, because we will:
-- Validate MQIPT use cases
-- Enhance productivity and user experience by how easy it is to define and deploy
-- Develop pattern for modernization efforts
-
-## Goals
-
+# Introduction and Intent
+## Background and Intent
+This Solution Document covers the following
+- Validate MQIPT architecture for Guaranteed message delivery using IBM MQ
+- Validate the function of MQIPT as a secure MQ proxy inn the DMZ
+- High Availability and Disaster Recovery across multiples zones and regions using RDQM
+- IBM MQ and MQIPT security constructs (LDAP authentication, MQIPT mTLS, SSL Peering, Channel security)
 
 # Solution Strategy
 
-##  3. <a name='Overview'></a>Overview
+## Overview
 
-This solution architecture demonstrates how you can deploy the Replicated Data Queue Manager in a Highly Available, Disaster Recovery enabled configuration across two regions that are interconnected/peered by a construct like the Transit Gateway(MZRs in IBM Cloud or Regions in AWS).
+This solution architecture demonstrates how you can deploy the Replicated Data Queue Manager in a Highly Available, Disaster Recovery enabled configuration across two regions that are interconnected/peered by a construct like the Transit Gateway (MZRs in IBM Cloud or Regions in AWS).
 
 - MQIPT nodes are setup in a DMZ subnet that is able to accept traffic from the internet on port `1501` and `1502`. The IPT nodes proxy the traffic to an Application Load Balancer that in turn will direct the traffic to the active RDQM instance in one of the three active zones.
 
 
 
-##  4. <a name='BuildingBlockView'></a>Building Block View
+## Building Block View
 
 ![test](./resources/rdqm-hadr-ibmcloud.png)
-##  5. <a name='Deployment'></a>Deployment
+## Deployment
 
 ## Manual Deployment
 ### Installing and Configuring IBM MQ and RDQM
@@ -103,7 +87,7 @@ In order to build out our setup, we are assuming three hosts that live in three 
 
 Above is what the hosts file on our bastion host should look like. We would connect to the bastion host via a public ip. We won't go into configuring ssh `proxyjump` in this section.
 
-### Host layout
+#### Host layout
 
 Each of the above hosts barring the bastion have two extra disks attached:
 
@@ -119,7 +103,7 @@ Disk /dev/vde: 25 GiB, 26843545600 bytes, 52428800 sectors
 
 IBM MQ installation recommends multiple separate disks for various aspects of MQ to increase performance and minimize overall I/O during heavy operations. For our purposes, we will only be going with one volume for MQ.
 
-### System preparation
+#### System preparation
 
 1. Create the mqm userid and group. This step occurs on all host minus the bastion host.
 
@@ -194,7 +178,7 @@ mqm       hard  nofile     10240
 mqm       soft  nofile     10240
 ```
 
-### Installing MQ
+#### Installing MQ
 
 This requires you to go to the following link and retrieving IBM MQ Advanced developer version 9.2.5:
 
@@ -221,7 +205,7 @@ dnf -y install MQSeries*.rpm --nogpgcheck
 [root@wdc1-mq1 ~]# /opt/mqm/bin/setmqinst -i -p /opt/mqm
 ```
 
-### **Installing RDQM**
+### Installing RDQM
 
 One of the primary components for RDQM is DRBD. IBM packages its own kmod-drbd packages with the MQ tar file. This is why knowing what kernel version you are running is critical. For this, IBM included a script called `modver`. The following commands need to be performed on every host in each region.
 
@@ -332,13 +316,13 @@ If the ssh key was configured as mentioned above, the mqm user should be able to
 rdqmstatus -n
 ```
 
-### **Creating A Disaster Recovery Queue**
+### Creating A Disaster Recovery Queue
 
 Now we are at the meat and potatoes. We're going to cover the steps to create a DR queue that is async replicated between regions. Let's get started.
 
 Order is everything when it comes to creating a DR queue. The creation command is always run on the last node first and first node last.
 
-#### **Creating DRHAQM1 With Primary in DC**
+#### Creating DRHAQM1 With Primary in DC
 
 ```
 WDC region
@@ -497,7 +481,7 @@ You can fail everything back with the following commands
 
 The queue service should be accessible via port `1501` on the primary node in the primary region.
 
-### Installing MQ IPT
+### Installing MQIPT
 
 - SSH into your MQIPT server(s).
 - Download and stage the MQIPT Software from [IBM Fix Central](https://www.ibm.com/support/fixcentral/swg/selectFixes?parent=ibm%7EWebSphere&product=ibm/WebSphere/WebSphere+MQ&release=9.2.0.0&platform=All&function=all)
@@ -593,7 +577,7 @@ MQCPI078 Route 1501 ready for connection requests
 ```
 Note that this initial implementation of MQIPT does not account for any mTLS or handshaking. In this mode, it is simply proxying traffic to the MQ servers (through our loadbalancers).
 
-### Enable MQIPT as a system service
+#### Enable MQIPT as a system service
 
 *This assumes you are running on Red Hat >= 7.x, CentOS >= 7.x, or Ubuntu >= 16.x*
 
@@ -629,7 +613,7 @@ Make sure to enable this at boot time
 ```
 systemctl enable mqipt
 ```
-### **Templating the service file for multiple MQIPT instances**
+#### Templating the service file for multiple MQIPT instances
 
 MQIPT has the ability to run with multiple instances and to control that with systemd we can simply create a config directory for each instance we want to control and run each with separate systemd templates. For example, we want to create an instance of MQIPT and name it `HAMQ`:
 
@@ -677,7 +661,7 @@ systemctl reload mqipt-@HAMQ.service
 
 **It's important to note that your instances can't be on the same ports.**
 
-##  6. <a name='Security'></a>Security
+## Security
 <b>MQIPT Security with TLS</b>
 MQIPT accepts a TLS from a queue manager or a client, the certificate is validated. The MQIPT also terminates the connection this allows for dynamic configuration of backend servers.
 
@@ -1185,7 +1169,7 @@ No OCSP configuration specified.
 Connection established to queue manager SSLDRHAQM1
 Sample AMQSSSLC end
 ```
-## Configuring MQ-IPT for SSLServer/Client
+### Configuring MQ-IPT for SSLServer/Client
 
 On the MQ-IPT server, let's first create a couple of keystores. These will be labeled for client and server. It's important to note that in this context, mqipt is acting as the SSL server for incoming client connections and it is acting as an SSL client for outgoing to the MQ nodes.
 
@@ -1311,7 +1295,7 @@ Connection established to queue manager SSLDRHAQM1
 Sample AMQSSSLC end
 ```
 
-## MQ to MQ and SSL encryption
+### MQ to MQ and SSL encryption
 
 For the purposes of testing, we'll initially create an unencrypted connection between queues on two different MQ hosts. These are not replicated or in any sort of failover but are designed to illustrate messages being forwarded from one queue to another.
 
@@ -1446,7 +1430,7 @@ Sample AMQSGET0 end
 
 We've now verified that the queues are able to send and receive.
 
-## Connecting two queue managers via SSL/TLS and self-signed certs
+### Connecting two queue managers via SSL/TLS and self-signed certs
 
 Create a keystore on the local host (wdc-mq-client)
 ```
@@ -1600,7 +1584,7 @@ AMQ8417I: Display Channel Status details.
    STATUS(RUNNING)                         SUBSTATE(RECEIVE)
 
 ```
-## Denying connections based on SSLPEER
+### Denying connections based on SSLPEER
 
 For this we are going to the remote queue and setting an SSL Peer setting for QM2
 
@@ -1772,7 +1756,7 @@ https://www.ibm.com/docs/en/ibm-mq/9.0?topic=tls-configuring-security-mq
 https://www.ibm.com/docs/en/ibm-mq/9.0?topic=securing-planning-your-security-requirements
 
 https://www.ibm.com/docs/en/ibm-mq/9.0?topic=mechanisms-message-security-in-mq
-##  9. <a name='Testing'></a>Testing
+## Testing
 
 ### Testing Tools
 -  [MQ Toolkit for Mac][https://developer.ibm.com/tutorials/mq-macos-dev/] comes with sample client programs to test.
@@ -2257,5 +2241,3 @@ Completed
 ```
 
 Everything looks good.
-
-# Architecture Decisions
