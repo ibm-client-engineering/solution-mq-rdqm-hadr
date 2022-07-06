@@ -33,6 +33,7 @@
 		- [Connecting two queue managers via SSL/TLS and self-signed certs](#connecting-two-queue-managers-via-ssltls-and-self-signed-certs)
 		- [Denying connections based on SSLPEER](#denying-connections-based-on-sslpeer)
 	- [Testing](#testing)
+		- [Summary of Results:](#summary-of-results)
 		- [Testing Tools](#testing-tools)
 	- [Failover testing for MQ HADR and RDQM](#failover-testing-for-mq-hadr-and-rdqm)
 		- [Setup](#setup)
@@ -1757,8 +1758,7 @@ https://www.ibm.com/docs/en/ibm-mq/9.0?topic=securing-planning-your-security-req
 https://www.ibm.com/docs/en/ibm-mq/9.0?topic=mechanisms-message-security-in-mq
 ## Testing
 
-###
-Summary of Results:
+### Summary of Results:
 - Mean time to failover between regions: `2.8 seconds`
 - Mean time to failover between zones: `547 millisecond`
 - Data-Loss during local(zonal) failover: `0`
