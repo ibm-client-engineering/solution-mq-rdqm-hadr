@@ -1,0 +1,17 @@
+---
+# tasks file for mq-install
+- name: Check node status
+  import_tasks: mq-rdqstatus.yaml
+  tags: default, status
+
+- name: Failover the qeue manager regionally
+  import_tasks: mq-regional-failover.yaml
+  tags: regional_failover 
+
+- name: Failover the qeue manager locally
+  import_tasks: mq-local-failover.yaml
+  tags: local_failover 
+
+- name: Failback the qeue manager locally
+  import_tasks: mq-local-failback.yaml
+  tags: local_failback 

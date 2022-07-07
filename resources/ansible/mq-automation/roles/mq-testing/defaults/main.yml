@@ -1,0 +1,3 @@
+---
+# defaults file for mq-testing
+queuenames: ['DRHAQM1', 'DRHAQM2']

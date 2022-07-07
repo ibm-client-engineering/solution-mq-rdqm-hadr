@@ -1,0 +1,11 @@
+- name: Do the failover between regions
+  block: 
+  - name: Set primary node for {{ queuemgr }} to standby
+    shell: "{{ MQM_BIN_PATH }}/rdqmdr -s -m {{ queuemgr }}"
+    when: "primary_cluster_node is defined and ansible_hostname in primary_cluster_node.node and primary_cluster_node.queue == queuemgr"
+    register: primary_out
+
+  - name: Set standby node for {{ queuemgr }} to primary
+    shell: "{{ MQM_BIN_PATH }}/rdqmdr -p -m {{ queuemgr }}"
+    when: "standby_cluster_node is defined and ansible_hostname in standby_cluster_node.node and standby_cluster_node.queue == queuemgr"
+    register: standby_out
