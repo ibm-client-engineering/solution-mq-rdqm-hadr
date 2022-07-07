@@ -1,0 +1,6 @@
+- name: Do the failover between local clusters
+  block: 
+  - name: Failback local primary to primary on all queuemgrs
+    shell: "{{ MQM_BIN_PATH }}/rdqmadm -r"
+    when: "'primary' in mq_role"
+    register: local_failback_out

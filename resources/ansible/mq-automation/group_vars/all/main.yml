@@ -1,0 +1,4 @@
+---
+# vars file for mq-testing
+MQM_BIN_PATH: "/opt/mqm/bin"
+queuemgr: "DRHAQM1"

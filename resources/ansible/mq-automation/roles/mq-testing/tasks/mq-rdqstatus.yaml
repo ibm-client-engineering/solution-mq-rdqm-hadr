@@ -1,0 +1,34 @@
+- name: Get the primary node
+  block:
+  - name: Get Node Status
+#    shell: "{{ MQM_BIN_PATH }}/dspmq -o status -n -m {{ queuemgr }} | awk -F' {2,}' '{print $2}'"
+    shell: "{{ MQM_BIN_PATH }}/rdqmstatus -m {{ queuemgr }}"
+    register: cluster_status
+
+  - name: Print return information from the previous task
+    ansible.builtin.debug:
+      var: cluster_status
+      verbosity: 1
+
+  - name: Set the primary node for the cluster
+    set_fact: 
+      primary_cluster_node: 
+        "queue": "{{ queuemgr }}"
+        "node": "{{ ansible_hostname }}"
+    when: '"Queue manager status:                   Running" in cluster_status.stderr_lines'
+
+  - name: Set the standby node for the cluster    
+    set_fact: 
+      standby_cluster_node: 
+        "queue": "{{ queuemgr }}"
+        "node": "{{ ansible_hostname }}"
+# No idea why this dumps the output to stderr, but whatever
+    when: '"Queue manager status:                   Ended immediately" in cluster_status.stderr_lines and "HA role:                                Primary" in cluster_status.stderr_lines and "DR role:                                Secondary" in cluster_status.stderr_lines'
+
+- debug:
+    msg: "Primary node for {{ primary_cluster_node.queue }} is {{ primary_cluster_node.node }}" 
+  when: primary_cluster_node is defined
+
+- debug:
+    msg: "Standby node for {{ standby_cluster_node.queue }} is {{ standby_cluster_node.node }}" 
+  when: standby_cluster_node is defined
