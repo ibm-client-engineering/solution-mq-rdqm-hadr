@@ -2153,7 +2153,7 @@ Completed
 
 ```
 
-_As a side note when failing between regions, this is not an automated process. If Region 1 went down completely, Region 2 would need to be manually started as it is for Disaster Recovery and not High Availibility. These processes can be automated externally with a monitoring solution that detects the loss of Region 1 and triggers an ansible job that starts up Region 2._ 
+**IMPORTANT**: _When failing between regions, this is not an automated process. If Region 1 went down completely, Region 2 would need to be manually started as it is for Disaster Recovery and not High Availibility. These processes can be automated externally with a monitoring solution that detects the loss of Region 1 and triggers an automated process that starts up Region 2. An example of how one might achieve this using Ansible has been provided in the **resources** folder in this repo._ 
 
 ### Failing over to Dallas
 ```
