@@ -1775,6 +1775,9 @@ We have two avenues for testing failover:
 	1. MQIPT currently runs on our bastion host and provides proxied connections between regions. This does not support failover per se but does support converged proxying between sites.
 
 ### Setup
+
+It's important to note that with a three node HA cluster, two nodes must be available to allow for a quorum. This is by design as in order to preserve the quorum between nodes, at least two nodes must be available.
+
 Our two regions are defined thusly:
 - DC
 	- DRHAQM1 - queue manager with primary cluster in DC
@@ -2150,8 +2153,9 @@ Completed
 
 ```
 
-Now lets failover that queue manager to Dallas.
+_As a side note when failing between regions, this is not an automated process. If Region 1 went down completely, Region 2 would need to be manually started as it is for Disaster Recovery and not High Availibility. These processes can be automated externally with a monitoring solution that detects the loss of Region 1 and triggers an ansible job that starts up Region 2._ 
 
+### Failing over to Dallas
 ```
 [root@wdc1-mq1 ~]# rdqmdr -s -m DRHAQM1
 Queue manager 'DRHAQM1' has been made the DR secondary on this node.
