@@ -20,27 +20,30 @@ from diagrams.aws.compute import EC2ElasticIpAddress as ENI
 
 
 graph_attr = {
-    "fontsize": "20",
-    "bgcolor": "transparent"
+    "fontsize": "15",
+    "bgcolor": "grey",
+#    "margin": ".5",
+        
 }
 node_attr={
-    "shape": "rectangle",
-    "style": "rounded",
-    "color": "black",
+#    "shape": "square",
+#    "style": "rounded",
+#    "color": "black",
     "fillcolor": "white",
     "fontcolor": "black",
-    "fontsize": "12",
+    "fontsize": "14",
     "fontname": "Helvetica",
-    "penwidth": "2",
-    "margin": "3",
-    "height": "1",
-    "width": ".8",
-    "fixedsize": "true"
-
+    "penwidth": "1",
+    "width": "1",
+    "fixedsize": "true",
+    "padding": "0",
+}
+edge_attr={
+    "margin": "1",
 }
 orange=Edge(color="ORANGE", style="bold")
 green=Edge(color="GREEN", style="bold")
-with Diagram("MQ-RQDM-HADR", show=False, direction="BT",graph_attr=graph_attr,node_attr=node_attr):
+with Diagram("MQ-RQDM-HADR", show=False,curvestyle="curved", direction="BT",graph_attr=graph_attr,node_attr=node_attr,edge_attr=edge_attr,):
     
 
 
