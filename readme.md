@@ -60,6 +60,12 @@ This solution architecture demonstrates how you can deploy the Replicated Data Q
 ## Building Block View
 
 ![test](./resources/rdqm-hadr-ibmcloud.png)
+
+
+## AWS Building Block View
+![Block View](./aws/assets/mq-rqdm-hadr.png)
+
+
 ## Deployment
 
 ## Manual Deployment
