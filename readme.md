@@ -117,14 +117,14 @@ IBM MQ installation recommends multiple separate disks for various aspects of MQ
 groupadd -g 1001 mqm
 useradd -g mqm -u 1001 -m -c "MQM User" mqm
 ```
-2. Update mqm user's bashrc and bash profile. These paths don't exist as of yet until the actual installation of MQ.
+2. Update mqm user's bashrc and bash profile. These paths don't exist as of yet until the actual installation of MQ. This needs to be done on all nodes.
 ```
 echo "export MQ_INSTALLATION_PATH=/opt/mqm" >> ~mqm/.bashrc
 echo '. $MQ_INSTALLATION_PATH/bin/setmqenv -s' >> ~mqm/.bashrc
 echo 'export PATH=$PATH:/opt/mqm/bin:/opt/mqm/samp/bin:' >> ~mqm/.bash_profile
 ```
 
-3. Update `/etc/sudoers` with the correct permissions for mqm user
+3. Update `/etc/sudoers` with the correct permissions for mqm user on all nodes.
 ```
 echo "%mqm ALL=(ALL) NOPASSWD: /opt/mqm/bin/crtmqm,/opt/mqm/bin/dltmqm,/opt/mqm/bin/rdqmadm,/opt/mqm/bin/rdqmstatus" >> /etc/sudoers
 ```
@@ -139,11 +139,11 @@ as mqm user
 
 Manually copy the public key to the `authorized_keys` file in `~/.ssh` for `mqm` user on each node in each stack.
 
-5. Install lvm2 if it's not already there
+5. Install lvm2 if it's not already there on all nodes
 ```
 dnf -y install lvm2
 ```
-6. Setup the volume group and logical volume for `/var/mqm`
+6. Setup the volume group and logical volume for `/var/mqm` on all nodes. Device names may be different depending on your environment.
 ```
 pvcreate /dev/vdb
 vgcreate MQStorageVG /dev/vdb
@@ -167,17 +167,27 @@ parted -s -a optimal /dev/vde mklabel gpt 'mkpart primary ext4 1 -1'
 pvcreate /dev/vde1
 vgcreate drbdpool /dev/vde1
 ```
-10. Add the following settings to `/etc/sysctl.conf`
+
+10. For SELinux: If keeping selinux set to targeted, run the following:
+
+```
+semanage permissive -a drbd_t
+```
+
+11. Add the following settings to `/etc/sysctl.conf`
 ```
 kernel.shmmni = 4096
 kernel.shmall = 2097152
 kernel.shmmax = 268435456
 kernel.sem = 32 4096 32 128
 fs.file-max = 524288
+```
+Execute sysctl
 
+```
 sysctl -p
 ```
-11. Set the ulimit for the mqm user by adding the following to `/etc/security/limits.conf`
+12. Set the ulimit for the mqm user by adding the following to `/etc/security/limits.conf`
 ```
 # For MQM User
 mqm       hard  nofile     10240
@@ -194,7 +204,7 @@ Once you have the package,  you will need to upload it to all six hosts. This do
 
 1. Extract the package on each host
 ```
-tar zxvf mqadv_dev925_linux_x86-64.tar.gz
+tar zxvf mqadv_dev931_linux_x86-64.tar.gz
 cd MQServer
 ```
 2. Run the mqlicense script to accept the IBM license
@@ -320,6 +330,12 @@ If the ssh key was configured as mentioned above, the mqm user should be able to
 9. Verify we're all online with:
 ```
 rdqmstatus -n
+```
+
+10. Update the groups for `mqm` user. The `mqm` user must be a member of the `haclient` group in order to perform some tasks on replicated queumanagers like `endmqm` or `strmqm`. This must be run on all nodes.
+
+```
+usermod -a -G haclient mqm
 ```
 
 ### Creating A Disaster Recovery Queue
@@ -2257,3 +2273,9 @@ Completed
 ```
 
 Everything looks good.
+
+
+### Enabling MQ Console
+
+### Using mq-messenger-util
+https://community.ibm.com/community/user/integration/viewdocument/mq-message-manager-utility?CommunityKey=77544459-9fda-40da-ae0b-fc8c76f0ce18
