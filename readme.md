@@ -332,7 +332,7 @@ If the ssh key was configured as mentioned above, the mqm user should be able to
 rdqmstatus -n
 ```
 
-10. Update the groups for `mqm` user. The `mqm` user must be a member of the `haclient` group in order to perform some tasks on replicated queumanagers. This must be run on all nodes.
+10. Update the groups for `mqm` user. The `mqm` user must be a member of the `haclient` group in order to perform some tasks on replicated queumanagers like `endmqm` or `strmqm`. This must be run on all nodes.
 
 ```
 usermod -a -G haclient mqm
