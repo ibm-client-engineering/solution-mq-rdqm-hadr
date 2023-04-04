@@ -1,0 +1,152 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap');
+
+:root {
+  --ifm-font-family-base: 'IBM Plex Sans';
+  --ifm-font-size-base: 16px;
+  --ifm-font-family-monospace: 'IBM Plex Mono';
+}
+
+.navbar__brand {
+  color: #fff;
+}
+
+.menu__list-item-collapsible {
+  border-radius: 0rem;
+}
+
+.breadcrumbs__link {
+  border-radius: 0;
+}
+
+.menu__list-item-collapsible {
+  font-weight: 1000;
+}
+.menu__list-item:not(:first-child) {
+  font-weight: 1000;
+}
+
+.table-of-contents__link:hover,
+.table-of-contents__link:hover code,
+.table-of-contents__link--active,
+.table-of-contents__link--active code {
+  color: var(--ifm-color-primary);
+  text-decoration: none;
+  border-left: .3rem solid #0e62fe;
+  padding-left: .75rem;
+  /* font-weight: var(--ifm-font-weight-bold); */
+}
+
+.menu__link--active:not(.menu__link--sublist) {
+	border-left: .3rem solid #0e62fe;
+}
+
+.table-of-contents__left-border {
+    border-left: 2px solid var(--ifm-toc-border-color);
+  }
+
+.table-of-contents {
+  font-size: 1rem;
+  margin-bottom: 0;
+  padding: var(--ifm-toc-padding-vertical) 0;
+}
+:root {
+    --ifm-navbar-height: 50px;
+    --ifm-navbar-padding-horizontal: 20px;
+    --ifm-color-primary: #000205;
+    --ifm-color-primary-dark: #35578f;
+    --ifm-color-primary-darker: #2e466f;
+    /* --ifm-menu-color-background-active: #e8e8e8; */
+    --ifm-color-primary-darkest: #202e78;
+    --ifm-color-primary-light: #5e8ce5;
+    --ifm-color-primary-lighter: #7fa5f8;
+    --ifm-color-primary-lightest: #b3cdf8;
+    --ifm-card-background-color: #0e62fe;
+    --ifm-background-color: #f4f4f4;
+    --ifm-footer-link-color: #f4f4f4;
+    --ifm-footer-title-color: #f4f4f4
+    --ifm-color-emphasis-800: #f4f4f4;
+    --ifm-color-emphasis-800: #f4f4f4;
+    --ifm-background-surface-color: #262626;
+    --ifm-code-font-size: 95%;
+    --ifm-navbar-link-color: #ffffff;
+    --ifm-navbar-link-hover-color: #fff;
+    --ifm-button-color: #ffffff;
+    --ifm-toc-border-color: #e0e0e0;
+    --ifm-footer-background-color: #262626;
+
+    --ifm-menu-link-padding-vertical: 0.4rem;
+    /* --ifm-menu-link-padding-horizontal: 2rem; */
+    --ifm-pagination-nav-border-radius: 0rem;
+    --ifm-alert-border-radius: 0rem;
+    --ifm-alert-background-color: #82b1ff;
+    --ifm-alert-border-color: #82b1ff;
+    --ifm-card-border-radius: 0;
+
+    --color-section-number: #e8e8e8;
+    --color-section-number-toc: #e8e8e8;
+
+
+
+    --ifm-h1-font-size: 3.0em
+}
+
+.docusaurus-highlight-code-line {
+  background-color: rgb(72, 77, 91);
+  display: block;
+  margin: 0 calc(-1 * var(--ifm-pre-padding));
+  padding: 0 var(--ifm-pre-padding);
+}
+
+article {
+  max-width: 1000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+html[data-theme='dark'] {
+  --ifm-background-color: #161616;
+  --ifm-background-surface-color: #262626;
+  --ifm-color-primary: #f0f3f6;
+  --ifm-button-color: #525152;
+
+}
+
+.clean-btn {
+  color: white;
+}
+
+.header-github-link:hover {
+  opacity: 0.6;
+}
+
+.header-github-link:before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  display: flex;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='white' d='M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12'/%3E%3C/svg%3E") no-repeat;
+  }
+
+.menu__list-item:not(:first-child) {
+  font-weight: 400;
+}
+
+.menu__link,
+.menu__caret {
+  border-radius: 0rem;
+}
+
+:root {
+  --doc-sidebar-width: 256px !important;
+}
+
+.pagination-nav__link {
+  border: 0px solid var(--ifm-color-emphasis-700);
+  display: block;
+  height: 100%;
+  line-height: var(--ifm-heading-line-height);
+  padding: var(--ifm-global-spacing);
+  transition: border-color var(--ifm-transition-fast) var(--ifm-transition-timing-default);
+  background-color:var(--ifm-button-color);
+}

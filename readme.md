@@ -506,7 +506,7 @@ The queue service should be accessible via port `1501` on the primary node in th
 ### Installing MQIPT
 
 - SSH into your MQIPT server(s).
-- Download and stage the MQIPT Software from [IBM Fix Central](https://www.ibm.com/support/fixcentral/swg/selectFixes?parent=ibm%7EWebSphere&product=ibm/WebSphere/WebSphere+MQ&release=9.2.0.0&platform=All&function=all)
+- Download and stage the MQIPT Software from [IBM Fix Central](https://www.ibm.com/support/fixcentral/swg/selectFixes?parent=ibm%7EWebSphere&product=ibm/WebSphere/WebSphere+MQ&release=9.3.2.0&platform=All&function=all)
 
 In our instance we are downloading version `9.2.5.0-IBM-MQIPT-LinuxX64`
 
