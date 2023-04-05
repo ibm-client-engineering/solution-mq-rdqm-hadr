@@ -7,9 +7,14 @@ title: User-Centric Approach
 # Design Thinking
 
 ## Personas
+### Maria - IT Manager
 
-    Empathy mapping and persona development
-    Identifying pain points and opportunities
+
+### David - Operations Analyst
+
+### Emma - Compliance Officer
+
+### Sofia - Application Developer
 
 ## Requirements
 

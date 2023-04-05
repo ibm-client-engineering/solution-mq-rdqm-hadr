@@ -6,21 +6,29 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-
+  markdown: {
+    mermaid: true,
+  },
+  themes: ['@docusaurus/theme-mermaid'],
+  themeConfig: {
+    mermaid: {
+      theme: { light: 'neutral', dark: 'forest' },
+    },
+  },
   title: 'IBM Client Engineering',
   tagline: 'Build Faster. Together.',
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here
-  url: 'https://githubprojectname/',
+  url: 'https://ibm-client-engineering.github.io/',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/',
+  baseUrl: '/solution-mq-rdqm-hadr/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
   organizationName: 'ibm-client-engineering', // Usually your GitHub org/user name.
-  projectName: 'docusaurus', // Usually your repo name.
+  projectName: 'solution-mq-rdqm-hadr', // Usually your repo name.
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -50,7 +58,7 @@ const config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
+            'https://github.com/ibm-client-engineering/solution-mq-rdqm-hadr/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
@@ -64,10 +72,14 @@ const config = {
     ({
       // Replace with your project's social card
       image: 'img/docusaurus-social-card.jpg',
+      tableOfContents: {
+        minHeadingLevel: 2,
+        maxHeadingLevel: 5,
+    },
       navbar: {
-        title: '| My Solution',
+        title: '| IBM MQ Replicated Data Queue Manager (RDQM) on AWS',
         logo: {
-          alt: 'My Site Logo',
+          alt: 'IBM Client Engineering',
           src: 'img/logo.svg',
           srcDark: 'img/logo-dark.svg',
           width: 200,
@@ -82,7 +94,7 @@ const config = {
           // },
 
           {
-            href: 'repo-url',
+            href: 'https://github.com/ibm-client-engineering/solution-mq-rdqm-hadr',
             className: "header-github-link",
             position: 'right',
           },
