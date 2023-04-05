@@ -156,8 +156,6 @@ usermod -a -G haclient mqm
 
 ## Installing MQIPT
 
-### Installing MQIPT
-
 - SSH into your MQIPT server(s).
 - Download and stage the MQIPT Software from [IBM Fix Central](https://ibm.biz/mq93ipt)
 
@@ -252,7 +250,7 @@ MQCPI078 Route 1501 ready for connection requests
 ```
 Note that this initial implementation of MQIPT does not account for any mTLS or handshaking. In this mode, it is simply proxying traffic to the MQ servers (through our loadbalancers).
 
-#### Enable MQIPT as a system service
+### Enable MQIPT as a system service
 
 *This assumes you are running on Red Hat >= 7.x, CentOS >= 7.x, or Ubuntu >= 16.x*
 
@@ -288,7 +286,7 @@ Make sure to enable this at boot time
 ```
 systemctl enable mqipt
 ```
-#### Templating the service file for multiple MQIPT instances
+### Templating the service file for multiple MQIPT instances
 
 MQIPT has the ability to run with multiple instances and to control that with systemd we can simply create a config directory for each instance we want to control and run each with separate systemd templates. For example, we want to create an instance of MQIPT and name it `HAMQ`:
 
