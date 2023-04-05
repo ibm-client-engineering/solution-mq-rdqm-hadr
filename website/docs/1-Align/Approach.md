@@ -9,7 +9,6 @@ title: User-Centric Approach
 ## Personas
 ### Maria - IT Manager
 
-
 ### David - Operations Analyst
 
 ### Emma - Compliance Officer
@@ -18,5 +17,4 @@ title: User-Centric Approach
 
 ## Requirements
 
-    Agile user stories and acceptance criteriappro
 
