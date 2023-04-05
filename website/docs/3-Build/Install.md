@@ -1,7 +1,7 @@
 ---
 id: solution-install
 sidebar_position: 2
-title: Installation
+title: Install
 ---
 
 ## Downloading the software
@@ -13,7 +13,7 @@ This requires you to go to the following link and retrieve IBM MQ Advanced devel
 Select the latest version of IBM MQ Adv and download it. At the time of this writing, that version should be `mqadv_dev932_linux_x86-64.tar.gz`.
 
 > **Note**
-> 
+>
 > _We are using the plain Linux release of MQ in this scope since we are using RHEL. There is also a version for Ubuntu._
 
 Once you have the package,  you will need to upload it to all six hosts. This document will assume you have done this. The following steps need to be taken on each host.

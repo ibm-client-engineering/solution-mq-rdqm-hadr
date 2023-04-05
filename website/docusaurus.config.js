@@ -12,7 +12,7 @@ const config = {
   themes: ['@docusaurus/theme-mermaid'],
   themeConfig: {
     mermaid: {
-      theme: { light: 'neutral', dark: 'forest' },
+        theme: { light: 'neutral', dark: 'dark' },
     },
   },
   title: 'IBM Client Engineering',
