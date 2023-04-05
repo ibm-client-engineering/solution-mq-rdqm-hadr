@@ -3,7 +3,7 @@ sidebar_position: 1
 slug: /
 title: 'IBM MQ RDQM on AWS'
 ---
-[![Site Build](https://github.com/ibm-client-engineering/solution-filenet-aws/actions/workflows/deploy.yml/badge.svg)](https://github.com/ibm-client-engineering/solution-filenet-aws/actions/workflows/deploy.yml)
+[![Site Build](https://github.com/ibm-client-engineering/solution-filenet-aws/actions/workflows/deploy.yml/badge.svg)](https://github.com/ibm-client-engineering/solution-filenet-aws/actions/workflows/deploy.yml) | ![Issues](https://img.shields.io/github/issues/ibm-client-engineering/solution-mq-rdqm-hadr?label=Issues) | ![Github Stars](https://img.shields.io/github/stars/ibm-client-engineering/solution-mq-rdqm-hadr?label=Github%20Stars&style=social)
 
 <a href="https://www.ibm.com/client-engineering"><img src="https://user-images.githubusercontent.com/95059/166857681-99c92cdc-fa62-4141-b903-969bd6ec1a41.png" width="500" height="200" /></a>
 
