@@ -1,6 +1,6 @@
 - name: Download MQ Advanced for Developers
   get_url:
-    url: "{{ mq_dl_url }}/mqadv_dev{{ version | replace('.', '') }}_ubuntu_x86-64.tar.gz"
+    url: "{{ mq_dl_url }}/mqadv_dev{{ version | replace('.', '') }}_{{ os }}_x86-64.tar.gz"
     dest: /tmp/mq.tar.gz
     force: no
   tags: download

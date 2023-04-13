@@ -10,9 +10,13 @@
 
 - name: Create the filesystems
   import_tasks: mq-filesystems.yaml
-  tags: filesystes, prepare, defaults
+  tags: filesystems, prepare, defaults
 
 - name: Download and stage MQ software
   import_tasks: mq-download.yaml
   tags: staging, prepare, defaults
+
+- name: Install MQ software
+  import_tasks: mq-install.yaml
+  tags: install, defaults
 

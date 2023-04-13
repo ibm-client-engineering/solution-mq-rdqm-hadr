@@ -1,8 +1,8 @@
 - name: Configure Sysctl settings
   block:
-  - name: kernel.shmni
+  - name: kernel.shmmni
     ansible.posix.sysctl:
-      name: kernel.shmni
+      name: kernel.shmmni
       value: '4096'
       state: present
   - name: kernel.shmall

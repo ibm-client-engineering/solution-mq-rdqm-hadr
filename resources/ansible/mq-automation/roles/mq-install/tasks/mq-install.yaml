@@ -1,0 +1,9 @@
+- name: Accept MQ License
+  shell: "cd /tmp/MQServer/ && ./mqlicense.sh -accept"
+  register: license_out 
+
+- name: Install MQ Software RPMS
+  ansible.builtin.dnf:
+    name: /tmp/MQServer/MQSeries*.rpm
+    disable_gpg_check: true
+    state: present
