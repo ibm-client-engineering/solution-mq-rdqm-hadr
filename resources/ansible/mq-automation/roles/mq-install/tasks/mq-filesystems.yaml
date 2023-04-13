@@ -1,0 +1,24 @@
+- name: Configure MQ Storage Device
+  community.general.lvg:
+    vg: MQStorageVG
+    pvs: {{ mq_storage_dev }}
+
+- name: Create the LV for MQ Storage
+  community.general.lvol:
+    vg: MQStorageVG
+    lv: MQStorageLV
+    size: 100%FREE
+
+- name: Create the DRBD Pool storage
+  block:
+  - name: Part up the Device
+    community.general.parted:
+      device: {{ rdqm_storage_dev }}
+      number: 1
+      state: present
+      fs_type: ext4
+
+  - name: Configure the DRBD pool storage device
+    community.general.lvg:
+      vg: drbdpool
+      pvs: "{{ mq_storage_dev }}1"

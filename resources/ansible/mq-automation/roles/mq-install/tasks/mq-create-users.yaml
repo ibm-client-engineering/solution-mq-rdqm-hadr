@@ -1,0 +1,34 @@
+- name: Create MQM User and Group
+  block:
+  - name: Create the group for mqm user
+    ansible.builtin.group:
+      name: "mqm"
+      state: present
+      gid: 1001
+
+  - name: Create the user for mqm
+    ansible.builtin.user:
+      name: "mqm"
+      comment: MQM User
+      uid: 1001
+      group: "mqm"
+
+  - name: Set up MQ user's env vars
+    ansible.builtin.copy:
+      src: files/bashrc
+      dest: /home/mqm/.bashrc
+      owner: mqm
+      group: mqm
+      mode: '0644'
+  
+  - name: Set up MQ user's sudoer privleges
+    community.general.sudoers:
+      name: mqm-user-privs
+      state: present 
+      user: mqm
+      commands:
+        - /opt/mqm/bin/crtmqm
+        - /opt/mqm/bin/dltmqm
+        - /opt/mqm/bin/rdqmadm
+        - /opt/mqm/bin/rdqmstatus
+      nopassword: true

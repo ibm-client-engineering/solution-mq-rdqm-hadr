@@ -1,0 +1,47 @@
+- name: Configure Sysctl settings
+  block:
+  - name: kernel.shmni
+    ansible.posix.sysctl:
+      name: kernel.shmni
+      value: '4096'
+      state: present
+  - name: kernel.shmall
+    ansible.posix.sysctl:
+      name: kernel.shmall
+      value: '2097152'
+      state: present
+  - name: kernel.shmmax
+    ansible.posix.sysctl:
+      name: kernel.shmmax
+      value: '268435456'
+      state: present
+  - name: kernel.sem
+    ansible.posix.sysctl:
+      name: kernel.sem
+      value: '32 4096 32 128'
+      state: present
+  - name: fs.file-max
+    ansible.posix.sysctl:
+      name: fs.file-max
+      value: '524288'
+      state: present
+
+- name: Update Pam limits for MQM group
+  block:
+  - name: Hard nofile
+    community.general.pam_limits:
+      domain: mqm
+      limit_type: hard
+      limit_item: nofile
+      value: 10240
+  - name: Soft nofile
+    community.general.pam_limits:
+      domain: mqm
+      limit_type: soft
+      limit_item: nofile
+      value: 10240
+
+- name: Install policy core utils
+  ansible.builtin.dnf:
+    name: policycoreutils-python-utils
+    state: latest
