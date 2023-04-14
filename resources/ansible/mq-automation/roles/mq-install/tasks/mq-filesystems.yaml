@@ -1,13 +1,20 @@
-- name: Configure MQ Storage Device
-  community.general.lvg:
-    vg: MQStorageVG
-    pvs: "{{ mq_storage_dev }}"
+- name: Collect any existing VGs since the lvol module isn't idempotent 
+  shell: vgs --noheadings | egrep "MQStorageVG|drbdpool" | awk '{print $1}'
+  register: vgsout
 
-- name: Create the LV for MQ Storage
-  community.general.lvol:
-    vg: MQStorageVG
-    lv: MQStorageLV
-    size: 100%FREE
+- name: Configure MQ Storage Device
+  block:
+  - name: Create MQStorageVG
+    community.general.lvg:
+      vg: MQStorageVG
+      pvs: "{{ mq_storage_dev }}"
+
+  - name: Create the LV for MQ Storage
+    community.general.lvol:
+      vg: MQStorageVG
+      lv: MQStorageLV
+      size: 100%FREE
+  when: "'MQStorageVG' not in vgsout.stdout_lines"
 
 - name: Create the DRBD Pool storage
   block:
@@ -22,3 +29,4 @@
     community.general.lvg:
       vg: drbdpool
       pvs: "{{ rdqm_storage_dev }}1"
+  when: "'drbdpool' not in vgsout.stdout_lines"
