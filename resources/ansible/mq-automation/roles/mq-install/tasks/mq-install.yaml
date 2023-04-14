@@ -73,5 +73,25 @@
 
   - name: Set the SELinux Context for drbd
     shell: semanage permissive -a drbd_t
+
+  - name: Set the mq user to be in the haclient group
+    ansible.builtin.user:
+      name: "mqm"
+      groups: "haclient"
+      append: true
+    
+  - name: Generate the rdqm.ini file for the hosts
+    ansible.builtin.template:
+      src: templates/rdqm.ini.j2
+      dest: /var/mqm/rdqm.ini
+      owner: mqm
+      group: mqm
+      mode: '0644'
+  
+  - name: Enable the local cluster
+    shell: "/opt/mqm/bin/rdqmadm -c"
+    register: clusterconfig
+    failed_when: clusterconfig.rc != 0
+
   when: "enable_rdqm == true"
     

@@ -1,11 +1,11 @@
 - name: Set fact for OS
   set_fact:
-    os: "linux"
+    ouros: "linux"
   when: "'rhel' in os or 'centos' in os"
 
 - name: Download MQ Advanced for Developers
   get_url:
-    url: "{{ mq_dl_url }}/mqadv_dev{{ version | replace('.', '') }}_{{ os }}_x86-64.tar.gz"
+    url: "{{ mq_dl_url }}/mqadv_dev{{ version | replace('.', '') }}_{{ ouros }}_x86-64.tar.gz"
     dest: /tmp/mq.tar.gz
     force: no
   tags: download
