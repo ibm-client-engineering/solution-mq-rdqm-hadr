@@ -2,7 +2,7 @@
   shell: "cd /tmp/MQServer/ && ./mqlicense.sh -accept"
   register: license_out 
 
-- name: Collect a list of packages to install
+- name: Collect a list of MQ packages to install
   shell: "ls /tmp/MQServer/MQSeries*"
   register: packagelist
 
@@ -14,4 +14,64 @@
     name: "{{ packagelist.stdout_lines }}" 
     disable_gpg_check: true
     state: present
-  when: os == 'linux'
+  when: os == 'rhel'
+
+- name: Install MQ Software DEB files
+  ansible.builtin.apt:
+    name: "{{ packagelist.stdout_lines }}" 
+    allow_unauthenticated: true
+    state: present
+  when: os == 'ubuntu'
+
+- name: Run setmqinst on primary nodes
+  shell: "{{ MQ_INSTALLATION_PATH }}/bin/setmqinst -i -p {{ MQ_INSTALLATION_PATH }}"
+  register: setmqinst
+  when: "'primary' in mq_role"
+
+- name: Install RDQM
+  block:
+  - name: Get our DRBD kmod version and set it as a fact
+    shell: /tmp/MQServer/Advanced/RDQM/PreReqs/{{ rel }}/kmod-drbd-9/modver
+    register: kmodver
+    failed_when: kmodver.rc == 1
+
+  - name: Collect a list of pacemaker packages to install
+    shell: "ls /tmp/MQServer/Advanced/RDQM/PreReqs/{{ rel }}/pacemaker-2/*"
+    register: pacemakerlist
+    
+  - name: Collect a list of drbd packages to install
+    shell: "ls /tmp/MQServer/Advanced/RDQM/PreReqs/{{ rel }}/drbd-utils-9/drbd-*"
+    register: drbdlist
+
+  - name: Grab the name of the RDQM package to install
+    shell: "ls /tmp/MQServer/Advanced/RDQM/MQSeriesRDQM-*"
+    register: rdqmpkg
+
+  - name: Install DRBD kmod
+    ansible.builtin.dnf:
+      name: "/tmp/MQServer/Advanced/RDQM/PreReqs/{{ rel }}/kmod-drbd-9/{{ kmodver.stdout }}" 
+      disable_gpg_check: true
+      state: present
+
+  - name: Install pacemaker packages
+    ansible.builtin.dnf:
+      name: "{{ pacemakerlist.stdout_lines }}"
+      disable_gpg_check: true
+      state: present
+
+  - name: Install drbd packages
+    ansible.builtin.dnf:
+      name: "{{ drbdlist.stdout_lines }}"
+      disable_gpg_check: true
+      state: present
+   
+  - name: Install RDQM Package
+    ansible.builtin.dnf:
+      name: "{{ rdqmpkg.stdout }}"
+      disable_gpg_check: true
+      state: present
+
+  - name: Set the SELinux Context for drbd
+    shell: semanage permissive -a drbd_t
+  when: "enable_rdqm == true"
+    
