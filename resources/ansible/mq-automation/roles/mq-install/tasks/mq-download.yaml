@@ -1,7 +1,12 @@
-- name: Set fact for OS
+- name: Set fact for Linux as our OS
   set_fact:
     ouros: "linux"
   when: "'rhel' in os or 'centos' in os"
+
+- name: Set fact for Ubuntu as our OS
+  set_fact:
+    ouros: "ubuntu"
+  when: "'ubuntu' in os"
 
 - name: Download MQ Advanced for Developers
   get_url:
