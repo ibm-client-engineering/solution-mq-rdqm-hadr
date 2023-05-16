@@ -1,0 +1,8 @@
+---
+# defaults file for mq-automation
+#version: 9.3.2
+#os: linux 
+mq_dl_url: "https://public.dhe.ibm.com/ibmdl/export/pub/software/websphere/messaging/mqadv"
+
+mq_storage_dev: /dev/vdb
+rdqm_storage_dev: /dev/vdc

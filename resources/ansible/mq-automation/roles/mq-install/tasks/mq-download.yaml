@@ -1,0 +1,23 @@
+- name: Set fact for Linux as our OS
+  set_fact:
+    ouros: "linux"
+  when: "'rhel' in os or 'centos' in os"
+
+- name: Set fact for Ubuntu as our OS
+  set_fact:
+    ouros: "ubuntu"
+  when: "'ubuntu' in os"
+
+- name: Download MQ Advanced for Developers
+  get_url:
+    url: "{{ mq_dl_url }}/mqadv_dev{{ version | replace('.', '') }}_{{ ouros }}_x86-64.tar.gz"
+    dest: /tmp/mq.tar.gz
+    force: no
+  tags: download
+
+- name: Extract MQ fom TAR
+  unarchive:
+    src: /tmp/mq.tar.gz
+    remote_src: yes
+    dest: /tmp
+  tags: download

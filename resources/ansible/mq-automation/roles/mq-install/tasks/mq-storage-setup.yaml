@@ -1,0 +1,9 @@
+- name: Determine our physical volumes
+  block:
+  - name: set some facts
+    set_fact:
+      device_list: "{{ ansible_devices.keys()| select('match', '^vd(.*)|^sd(.*)|^xvd(.*)$')|list }}"
+
+  - debug:
+      msg: "{{ item }} {{ ansible_devices[item].size }}"
+    loop: "{{ device_list }}"

@@ -1,9 +1,9 @@
-- hosts: washington,dallas 
+- hosts: washington
   become: true
   become_user: root
   gather_facts: true
   roles:
-  - role: mq-testing
+  - role: mq-install
 
 #  - collections:
 #    name: community.general

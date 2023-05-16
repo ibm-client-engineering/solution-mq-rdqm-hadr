@@ -1,0 +1,22 @@
+---
+# tasks file for mq-automation
+- name: Prepare the OS
+  import_tasks: mq-os-setup.yaml
+  tags: OS, prepare, defaults
+
+- name: Create the MQ User and Group
+  import_tasks: mq-create-users.yaml
+  tags: createusers, prepare, defaults
+
+- name: Create the filesystems
+  import_tasks: mq-filesystems.yaml
+  tags: filesystems, prepare, defaults
+
+- name: Download and stage MQ software
+  import_tasks: mq-download.yaml
+  tags: staging, prepare, defaults
+
+- name: Install MQ software
+  import_tasks: mq-install.yaml
+  tags: install, defaults
+

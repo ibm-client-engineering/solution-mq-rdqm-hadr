@@ -2,3 +2,12 @@
 # vars file for mq-testing
 MQM_BIN_PATH: "/opt/mqm/bin"
 queuemgr: "DRHAQM1"
+enable_rdqm: true
+
+version: 9.3.2
+os: rhel 
+rel: el8
+
+# Some env vars here
+
+MQ_INSTALLATION_PATH: /opt/mqm
