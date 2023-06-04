@@ -1,12 +1,30 @@
 ---
 # vars file for mq-testing
 MQM_BIN_PATH: "/opt/mqm/bin"
-queuemgr: "DRHAQM1"
+queuemgrs: 
+  - name: "HAQM1"
+    is_dr: false
+    is_ha: true
+    size: "1024M"
+  - name: "HAQM2"
+    is_dr: false
+    is_ha: true
+    size: "1024M"
+  - name: "HAQM3"
+    is_dr: false
+    is_ha: true
+    size: "2048M"
 enable_rdqm: true
+
+mqm_uid: 1001
+mqm_gid: 1001
 
 version: 9.3.2
 os: rhel 
 rel: el8
+
+mq_storage_dev: vdb
+rdqm_storage_dev: vdc
 
 # Some env vars here
 

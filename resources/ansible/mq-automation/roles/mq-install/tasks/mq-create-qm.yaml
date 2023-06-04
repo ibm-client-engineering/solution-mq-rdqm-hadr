@@ -1,0 +1,20 @@
+- name: Get a list of existing Queue Managers
+  shell: "/opt/mqm/bin/dspmq | awk '{print $1}' | sed 's/^QMNAME(//' | sed 's/)//'"
+  register: qmgrlist
+
+- name: Create Queue Managers
+  block:
+  - name: Create HA queue manager on standby nodes
+    shell: "sudo /opt/mqm/bin/crtmqm -sxs -fs {{ item.size }} {{ item.name }}"
+    loop: "{{ queuemgrs }}"
+    become_user: "mqm"
+    when: 
+      - "'standby' in mq_role and item.is_ha|bool and not item.is_dr|bool and item.name not in qmgrlist.stdout_lines"
+
+  - name: Create HA queue manager on primary nodes
+    shell: "sudo /opt/mqm/bin/crtmqm -sx -fs {{ item.size }} {{ item.name }}"
+    loop: "{{ queuemgrs }}"
+    become_user: "mqm"
+    when: 
+      - "'primary' in mq_role and item.is_ha|bool and not item.is_dr|bool and item.name not in qmgrlist.stdout_lines"
+  when: "enable_rdqm|bool"

@@ -1,4 +1,4 @@
-- hosts: primary
+- hosts: primary,dr 
   become: true
   become_user: root
   gather_facts: true
