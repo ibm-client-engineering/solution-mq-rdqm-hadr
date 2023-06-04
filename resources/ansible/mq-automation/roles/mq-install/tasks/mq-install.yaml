@@ -87,11 +87,12 @@
       owner: mqm
       group: mqm
       mode: '0644'
+    register: createdrdqm
   
   - name: Enable the local cluster
     shell: "/opt/mqm/bin/rdqmadm -c"
     register: clusterconfig
     failed_when: clusterconfig.rc != 0
-
-  when: "enable_rdqm == true"
+    when: createdrdqm.changed
+  when: "enable_rdqm|bool"
     

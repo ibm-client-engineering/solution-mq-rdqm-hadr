@@ -20,3 +20,7 @@
   import_tasks: mq-install.yaml
   tags: install, defaults
 
+- name: Create Queue Managerts
+  import_tasks: mq-create-qm.yaml
+  tags: createqm, defaults
+
