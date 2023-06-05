@@ -1,0 +1,4 @@
+DEFINE CHANNEL({{ qm.channel }}) CHLTYPE(SVRCONN)
+DEFINE QLOCAL({{ qm.queumgr }})
+DEFINE listener({{ qm.listener }}) trptype(tcp) control(qmgr) port({{ qm.listen_port }})
+start listener({{ qm.listener }})

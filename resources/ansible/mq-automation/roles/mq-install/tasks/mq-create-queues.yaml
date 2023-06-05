@@ -1,0 +1,53 @@
+- name: Create queues
+  when: "'primary' in mq_role"
+  block:
+    - name: Check if the QUEUE already exists
+      shell: "printf 'DISPLAY Q({{ qm.name }}.LOCAL.QUEUE)' | /opt/mqm/bin/runmqsc {{ qm.name }} | grep 'QUEUE(' | awk -F'[()]' '{print $2}'"
+      become_user: mqm
+      register: queue_vars
+      loop: "{{ queuemgrs }}"
+      loop_control:
+        loop_var: qm
+    
+    - set_fact:
+        queuemgrs_list: []
+
+    - set_fact:
+        queuemgrs_list: "{{ queuemgrs_list + item.stdout_lines }}"
+      loop: "{{ queue_vars.results }}"
+      when: item.stdout_lines|length>0
+
+    - name: Generate our templated command files 
+      when: "qm.queue not in queuemgrs_list"
+      become_user: mqm
+      ansible.builtin.template:
+        src: templates/create_queue.in.j2
+        dest: /tmp/{{ qm.name }}.in
+        mode: 0755
+      loop: "{{ queuemgrs }}"
+      loop_control:
+        loop_var: qm
+
+    - name: Create the Queues, Channels, and Listeners
+      when: "qm.queue not in queuemgrs_list"
+      become_user: mqm
+      shell: "/opt/mqm/bin/runmqsc -f /tmp/{{ qm.name }}.in {{ qm.name }}"
+      register: queue_create_out
+      loop: "{{ queuemgrs }}"
+      loop_control:
+        loop_var: qm
+
+# Assume RHEL for now
+- name: Get status of firewalld
+  ansible.builtin.systemd:
+    name: 'firewalld.service'
+  register: firewalld_service_status
+
+- name: Open firewall ports on all hosts
+  when: "firewalld_service_status.status.ActiveState == 'active'"
+  firewalld:
+    port: "{{ item.listen_port }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: yes
+  loop: "{{ queuemgrs }}"
