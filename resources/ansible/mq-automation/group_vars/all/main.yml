@@ -27,6 +27,7 @@ queuemgrs:
     size: "2048M"
     listen_port: "1503"
 enable_rdqm: true
+create_queues: false
 
 mqm_uid: 1001
 mqm_gid: 1001

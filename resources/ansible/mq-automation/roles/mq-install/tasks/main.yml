@@ -25,5 +25,6 @@
   tags: createqm, defaults
 
 - name: Create Queues 
+  when: create_queues|bool
   import_tasks: mq-create-queues.yaml
   tags: createqueues, defaults
