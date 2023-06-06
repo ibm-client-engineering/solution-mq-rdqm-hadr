@@ -8,6 +8,7 @@
 
 - debug:
     var: packagelist.stdout_lines
+    verbosity: 1
 
 - name: Install MQ Software RPMS
   ansible.builtin.dnf:
