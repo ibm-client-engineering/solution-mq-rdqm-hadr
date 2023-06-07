@@ -28,7 +28,7 @@
       loop_control:
         loop_var: qm
 
-    - name: Create the Queues, Channels, and Listeners
+    - name: Create the Queues
       when: "qm.queue not in queuemgrs_list"
       become_user: mqm
       shell: "/opt/mqm/bin/runmqsc -f /tmp/{{ qm.name }}.in {{ qm.name }}"
@@ -36,18 +36,3 @@
       loop: "{{ queuemgrs }}"
       loop_control:
         loop_var: qm
-
-# Assume RHEL for now
-- name: Get status of firewalld
-  ansible.builtin.systemd:
-    name: 'firewalld.service'
-  register: firewalld_service_status
-
-- name: Open firewall ports on all hosts
-  when: "firewalld_service_status.status.ActiveState == 'active'"
-  firewalld:
-    port: "{{ item.listen_port }}/tcp"
-    permanent: true
-    state: enabled
-    immediate: yes
-  loop: "{{ queuemgrs }}"

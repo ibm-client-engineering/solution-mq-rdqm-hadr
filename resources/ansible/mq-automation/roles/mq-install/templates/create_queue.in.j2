@@ -1,4 +1,5 @@
-DEFINE CHANNEL({{ qm.channel }}) CHLTYPE(SVRCONN)
-DEFINE QLOCAL({{ qm.queue }})
-DEFINE listener({{ qm.listener }}) trptype(tcp) control(qmgr) port({{ qm.listen_port }})
-start listener({{ qm.listener }})
+{% if qm.queue is defined and create_queues|bool %}
+{% for queue in qm.queue %}
+DEFINE QLOCAL({{ queue }})
+{% endfor %}
+{% endif %}

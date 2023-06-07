@@ -1,17 +1,17 @@
 - name: Configure MQ Storage Device
+  when: "'MQStorageVG' not in ansible_facts.lvm.vgs.keys()|list"
   block:
   - name: Create MQStorageVG
+    failed_when: "mq_storage_dev not in ansible_facts.devices.keys()|list"
     community.general.lvg:
       vg: MQStorageVG
       pvs: "/dev/{{ mq_storage_dev }}"
-    failed_when: "mq_storage_dev not in ansible_facts.devices.keys()|list"
 
   - name: Create the LV for MQ Storage
     community.general.lvol:
       vg: MQStorageVG
       lv: MQStorageLV
       size: 100%FREE
-  when: "'MQStorageVG' not in ansible_facts.lvm.vgs.keys()|list"
 
 - set_fact:
     part_name: "{{ rdqm_storage_dev }}1"
@@ -20,6 +20,7 @@
     msg: "{{ part_name }}"
 
 - name: Create the DRBD Pool storage
+  when: "'drbdpool' not in ansible_facts.lvm.vgs.keys()|list"
   block:
   - name: Reset the fact for our primary partition in case we got NVME ssd 
     set_fact:
@@ -27,15 +28,14 @@
     when: "'nvme' in rdqm_storage_dev"
 
   - name: Part up the Device
+    failed_when: "rdqm_storage_dev not in ansible_facts.devices.keys()|list"
     community.general.parted:
       device: "/dev/{{ rdqm_storage_dev }}"
       number: 1
       state: present
       fs_type: ext4
-    failed_when: "rdqm_storage_dev not in ansible_facts.devices.keys()|list"
 
   - name: Configure the DRBD pool storage device
     community.general.lvg:
       vg: drbdpool
       pvs: "/dev/{{ part_name }}"
-  when: "'drbdpool' not in ansible_facts.lvm.vgs.keys()|list"

@@ -11,25 +11,26 @@
     verbosity: 1
 
 - name: Install MQ Software RPMS
+  when: os == 'rhel'
   ansible.builtin.dnf:
     name: "{{ packagelist.stdout_lines }}" 
     disable_gpg_check: true
     state: present
-  when: os == 'rhel'
 
 - name: Install MQ Software DEB files
+  when: os == 'ubuntu'
   ansible.builtin.apt:
     name: "{{ packagelist.stdout_lines }}" 
     allow_unauthenticated: true
     state: present
-  when: os == 'ubuntu'
 
 - name: Run setmqinst on primary nodes
+  when: "'primary' in mq_role"
   shell: "{{ MQ_INSTALLATION_PATH }}/bin/setmqinst -i -p {{ MQ_INSTALLATION_PATH }}"
   register: setmqinst
-  when: "'primary' in mq_role"
 
 - name: Install RDQM
+  when: "enable_rdqm|bool"
   block:
   - name: Get our DRBD kmod version and set it as a fact
     shell: /tmp/MQServer/Advanced/RDQM/PreReqs/{{ rel }}/kmod-drbd-9/modver
@@ -95,5 +96,4 @@
     register: clusterconfig
     failed_when: clusterconfig.rc != 0
     when: createdrdqm.changed
-  when: "enable_rdqm|bool"
     
