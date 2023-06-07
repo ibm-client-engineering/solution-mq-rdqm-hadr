@@ -967,6 +967,7 @@ Certificate Label: personalcertlabel
 No OCSP configuration specified.
 Connection established to queue manager SSLDRHAQM1
 Sample AMQSSSLC end
+```
 
 ### Configuring MQ-IPT for SSLServer/Client
 
@@ -1213,6 +1214,7 @@ target queue is QUEUE.ON.QM2
 this is a test
 testing
 another message
+
 ```
 
 On the remote host, run
