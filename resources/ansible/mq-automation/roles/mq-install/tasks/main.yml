@@ -28,3 +28,11 @@
   when: create_queues|bool
   import_tasks: mq-create-queues.yaml
   tags: createqueues, defaults
+
+- name: Start MQ Queue Managers
+  import_tasks: mq-start-RDQM.yaml
+  tags: startqm
+
+- name: Stop MQ Queue Managers
+  import_tasks: mq-stop-RDQM.yaml
+  tags: stopqm
