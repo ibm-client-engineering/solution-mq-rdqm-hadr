@@ -1,5 +1,3 @@
-{% if qm.queue is defined and create_queues|bool %}
-{% for queue in qm.queue %}
-DEFINE QLOCAL({{ queue }})
+{% for queue in qm.0.extra_queues %}
+DEFINE QLOCAL({{ queue  }}) 
 {% endfor %}
-{% endif %}
