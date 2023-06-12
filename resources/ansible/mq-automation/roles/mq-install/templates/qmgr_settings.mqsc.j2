@@ -1,0 +1,16 @@
+* Stop the default listener. This file should only be run once.
+STOP LISTENER('SYSTEM.DEFAULT.LISTENER.TCP') IGNSTATE(YES)
+* Create some default queues
+DEFINE QLOCAL('DEV.QUEUE.1') REPLACE
+DEFINE QLOCAL('{{ qm.name }}.DEAD.LETTER.QUEUE') REPLACE
+
+DEFINE CHANNEL({{ qm.channel }}) CHLTYPE(SVRCONN)
+DEFINE QLOCAL({{ qm.queue }})
+
+* Set up ZERO security for now
+ALTER QMGR CHLAUTH(DISABLED)
+ALTER QMGR CONNAUTH(' ')
+REFRESH SECURITY (*)
+
+DEFINE listener({{ qm.listener }}) trptype(tcp) control(qmgr) port({{ qm.listen_port }}) REPLACE
+START LISTENER('{{ qm.listener }}') IGNSTATE(YES)
