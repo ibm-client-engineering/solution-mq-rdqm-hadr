@@ -1,6 +1,6 @@
 ---
-id: solution-scale
+id: knowledge-transfer
 sidebar_position: 2
-title: Scale
+title: Knowledge Transfer
 ---
 
