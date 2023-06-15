@@ -66,7 +66,7 @@
       name: "{{ drbdlist.stdout_lines }}"
       disable_gpg_check: true
       state: present
-   
+
   - name: Install RDQM Package
     ansible.builtin.dnf:
       name: "{{ rdqmpkg.stdout }}"
@@ -81,19 +81,39 @@
       name: "mqm"
       groups: "haclient"
       append: true
-    
-  - name: Generate the rdqm.ini file for the hosts
+
+  - name: Generate the rdqm.ini file for primary hosts
+    when: "'active' in dr_state"
     ansible.builtin.template:
       src: templates/rdqm.ini.j2
       dest: /var/mqm/rdqm.ini
       owner: mqm
       group: mqm
       mode: '0644'
-    register: createdrdqm
+    vars:
+      hostgroup: "{{ groups['primary'] }}"
+    register: createdrdqmprimary
+
+  - name: Generate the rdqm.ini file for standby hosts
+    when: "'passive' in dr_state and 'standby' in groups"
+    ansible.builtin.template:
+      src: templates/rdqm.ini.j2
+      dest: /var/mqm/rdqm.ini
+      owner: mqm
+      group: mqm
+      mode: '0644'
+    vars:
+      hostgroup: "{{ groups['standby'] }}"
+    register: createdrdqmstandby
   
   - name: Enable the local cluster
     shell: "/opt/mqm/bin/rdqmadm -c"
-    register: clusterconfig
-    failed_when: clusterconfig.rc != 0
-    when: createdrdqm.changed
+    register: clusterconfigprimary
+    failed_when: clusterconfigprimary.rc != 0
+    when: createdrdqmprimary.changed
     
+  - name: Enable the remote cluster
+    shell: "/opt/mqm/bin/rdqmadm -c"
+    register: clusterconfigstandby
+    failed_when: clusterconfigstandby.rc != 0
+    when: createdrdqmstandby.changed
