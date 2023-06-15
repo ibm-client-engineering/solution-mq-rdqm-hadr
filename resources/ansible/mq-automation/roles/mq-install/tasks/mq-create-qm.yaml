@@ -1,29 +1,14 @@
 - name: Get a list of existing Queue Managers
+  when: "'primary' in hostvars[host].dr_state"
   shell: "/opt/mqm/bin/dspmq | awk '{print $1}' | sed 's/^QMNAME(//' | sed 's/)//'"
   register: qmgrlist
 
 - name: Create Queue Managers
   when: "enable_rdqm|bool"
   block:
-  - name: Create HA queue manager on standby nodes
-    when: 
-      - "'standby' in mq_role and qm.is_ha|bool and not qm.is_dr|bool and qm.name not in qmgrlist.stdout_lines"
-    shell: "sudo /opt/mqm/bin/crtmqm -sxs -fs {{ qm.size }} {{ qm.name }}"
-    loop: "{{ queuemgrs }}"
-    loop_control:
-      loop_var: qm
-      label: "{{ qm.name }}"
-    become_user: "mqm"
-
-  - name: Create HA queue manager on primary nodes
-    when: 
-      - "'primary' in mq_role and qm.is_ha|bool and not qm.is_dr|bool and qm.name not in qmgrlist.stdout_lines"
-    shell: "sudo /opt/mqm/bin/crtmqm -sx -fs {{ qm.size }} {{ qm.name }}"
-    loop: "{{ queuemgrs }}"
-    loop_control:
-      loop_var: qm
-      label: "{{ qm.name }}"
-    become_user: "mqm"
+  - name: Testing stuff
+    import_tasks: mq-test-tasks.yaml
+  # tags: teststuff
  
   - name: Set up the queue manager MQSC file
     when:

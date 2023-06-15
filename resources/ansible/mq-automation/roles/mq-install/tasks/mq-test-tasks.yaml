@@ -1,0 +1,29 @@
+- name: Set up the queue manager MQSC file
+  # become_user: mqm
+  ansible.builtin.template:
+    src: templates/create_qm.sh.j2
+    dest: /tmp/{{ qm.name }}_create_qm.sh
+    owner: mqm
+    group: mqm
+    mode: 0755
+  loop: "{{ queuemgrs }}"
+  loop_control:
+    loop_var: qm
+    label: "{{ qm.name }}"
+
+- name: Run the queue manager creation script
+  become_user: mqm
+  shell: /tmp/{{ qm.name }}_create_qm.sh
+  loop: "{{ queuemgrs }}"
+  loop_control:
+    loop_var: qm
+    label: "{{ qm.name }}"
+
+- name: Delete the created template files
+  file:
+    path: /tmp/{{ qm.name }}_create_qm.sh
+    state: absent
+  loop: "{{ queuemgrs }}"
+  loop_control:
+    loop_var: qm
+    label: "{{ qm.name }}"

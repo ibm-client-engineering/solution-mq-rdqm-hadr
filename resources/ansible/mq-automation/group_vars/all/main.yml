@@ -8,7 +8,7 @@ queuemgrs:
     queue: "DEFAULT.LOCAL.QUEUE"
     channel: "TESTQMGR1.SRVCONN"
     listener: "TESTQMGR1.LISTENER"
-    is_dr: false
+    is_dr: true
     is_ha: true
     size: "1024M"
     listen_port: "1501"
@@ -18,7 +18,7 @@ queuemgrs:
     queue: "DEFAULT.LOCAL.QUEUE"
     channel: "TESTQMGR2.SRVCONN"
     listener: "TESTQMGR2.LISTENER"
-    is_dr: false
+    is_dr: true
     is_ha: true
     size: "1024M"
     listen_port: "1502"

@@ -1,0 +1,44 @@
+#!/bin/bash
+
+port=7001
+QM_NAME={{ qm.name }}
+QM_SIZE={{ qm.size }}
+RP_PORT={{ qm.listen_port }}
+
+{# while getopts "q:s:p:" opt; do
+    case "${opt}" in
+        q)
+            q=${OPTARG}
+            QM_NAME=${q}
+            ;;
+        s)
+            s=${OPTARG}
+            QM_SIZE=${s}
+            ;;
+        p)
+            p=${OPTARG}
+            RP_PORT=${p}
+            ;;
+        \?)
+            echo "Invalid option: -$OPTARG" >&2
+            ;;
+    esac
+done #}
+
+{% if qm.is_dr|bool and qm.is_ha|bool %}
+
+    {% set RI_IP_ADDRESSES = (groups['standby'] if 'active' in dr_state else groups['primary']) | map('extract', hostvars, ('backend_ip' if hostvars[inventory_hostname].backend_ip else 'ansible_host')) | join(',')  %}
+    {% set RL_IP_ADDRESSES = (groups['primary'] if 'active' in dr_state else groups['standby']) | map('extract', hostvars, ('backend_ip' if hostvars[inventory_hostname].backend_ip else 'ansible_host')) | join(',')  %}
+
+    echo "{{ RL_IP_ADDRESSES }}" 
+    echo "{{ RI_IP_ADDRESSES }}" 
+
+    sudo /opt/mqm/bin/crtmqm {{ '-sxs' if mq_role == 'standby' else '-sx' }} -rr {{ 'p' if dr_state == 'active' else 's' }} -rl $RL_IP_ADDRESSES -ri $RI_IP_ADDRESSES -rp $RP_PORT -fs $QM_SIZE $QM_NAME
+{% endif %}
+
+{% if not qm.is_dr|bool and qm.is_ha|bool %}
+
+    # Run our standard local qm create commands here
+    sudo /opt/mqm/bin/crtmqm {{ '-sxs' if mq_role == 'standby' else '-sx' }}  -fs $QM_SIZE $QM_NAME
+
+{% endif %}
