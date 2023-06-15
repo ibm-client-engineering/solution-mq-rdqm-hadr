@@ -1,9 +1,9 @@
-{% for host in ansible_play_hosts %}
+{% for host in hostgroup %}
 Node:
   Name={{ hostvars[host].inventory_hostname }}
-  {% if hostvars[host].backend_ip %}
+{% if hostvars[host].backend_ip %}
   HA_Replication={{ hostvars[host].backend_ip }}
-  {% else %}
+{% else %}
   HA_Replication={{ hostvars[host].ansible_host }}
-  {% endif %}
+{% endif %}
 {% endfor %}
