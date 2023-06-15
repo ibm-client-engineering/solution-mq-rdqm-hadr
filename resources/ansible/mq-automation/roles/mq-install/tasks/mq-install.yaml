@@ -116,4 +116,4 @@
     shell: "/opt/mqm/bin/rdqmadm -c"
     register: clusterconfigstandby
     failed_when: clusterconfigstandby.rc != 0
-    when: createdrdqmstandby.changed
+    when: "'passive' in dr_state and createdrdqmstandby.changed"
