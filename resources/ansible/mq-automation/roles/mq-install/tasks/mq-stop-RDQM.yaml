@@ -1,0 +1,15 @@
+- name: Stop RDQM
+  shell: "endmqm {{ item }}"
+  changed_when: false
+  loop: "{{ queue_managers }}"
+  tags: stopmq
+  when: "'primary' in mq_role"
+
+- name: Check RDQM Status
+  shell: "dspmq"
+  register: mq_status
+  tags: status
+  when: "'primary' in mq_role"
+
+- debug:
+    var: mq_status.stdout_lines

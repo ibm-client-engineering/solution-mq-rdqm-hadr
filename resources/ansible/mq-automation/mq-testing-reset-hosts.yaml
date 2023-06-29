@@ -1,0 +1,18 @@
+- name: Revert snapshots
+  hosts: localhost
+  gather_facts: true
+
+  vars:
+      user: ''
+      key: ''
+
+  tasks:
+    - name: Revert snapshots
+      command: curl -X GET -k -u {{user}}:{{key}} 'https://api.fyre.ibm.com/rest/v1/?operation=reverttosnapshot&node_name={{ item.node_name }}&snapshot_name={{ item.snapshot_name }}'
+      loop:
+        - { node_name: mq-local-node01, snapshot_name: 58o9N }
+        - { node_name: mq-local-node02, snapshot_name: HSldz }
+        - { node_name: mq-local-node03, snapshot_name: SUg8I }
+        - { node_name: mq-dr-node01, snapshot_name: IkrO2 }
+        - { node_name: mq-dr-node02, snapshot_name: 6949T }
+        - { node_name: mq-dr-node03, snapshot_name: 1UrV3 }
