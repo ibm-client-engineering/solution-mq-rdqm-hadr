@@ -1,6 +1,6 @@
 ---
-id: solution-scale
+id: adopt
 sidebar_position: 1
-title: Scale
+title: Adopt
 ---
 
