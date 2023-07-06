@@ -11,15 +11,15 @@ It includes actions such as configuring OS settings and dependencies required fo
 
   - The code modifies various kernel parameters using the sysctl command to optimize system performance and resource allocation.
   - By adjusting parameters such as kernel.shmmni, kernel.shmall, kernel.shmmax, kernel.sem, and fs.file-max, we can fine-tune the behavior of the Linux kernel to better suit the needs of IBM MQ and potentially improve its performance. 
-<br>
-<br>
+
+
 - Update PAM limits for the mqm group:
 
   - PAM (Pluggable Authentication Modules) limits define the maximum system resources available to users or groups.
   - In this case, the code updates the limits for the mqm group by setting the maximum number of open file descriptors (nofile) to 10240.
   - This ensures that IBM MQ processes, which run under the mqm group, have sufficient file descriptor limits to handle concurrent connections and messaging.
-<br>
-<br>
+
+
 - Install policy core utils:
 
   - The code installs the policycoreutils-python-utils package using the DNF package manager.
@@ -36,16 +36,16 @@ This task imports the tasks defined in the mq-create-users.yaml file to create t
   - The mqm group is created with a specified group ID (mqm_gid).
   - The mqm user is created with a specific user ID (mqm_uid) and assigned to the mqm group.
   - Creating a separate user and group for MQ helps maintain security and isolation for MQ processes.
-<br>
-<br>
+
+
 - Set up MQ user's environment variables:
 
   - This task ensures that the MQ user (mqm) has the appropriate environment variables set up.
   - The .bashrc file, which contains environment configurations, is copied from the files/bashrc source to the MQ user's home directory (/home/mqm/.bashrc).
   - This file is owned by the mqm user and group, and it has read permissions (0644).
   - Setting up environment variables helps provide the necessary settings for the MQ user's session.
-<br>
-<br>
+
+
 - Set up MQ user's sudoer privileges:
 
   - This task grants specific sudoer privileges to the MQ user (mqm).
@@ -62,14 +62,14 @@ This task imports the tasks defined in the mq-filesystems.yaml file to create th
   - This block of tasks executes only when the "MQStorageVG" volume group is not present on the system. It ensures that the necessary storage configuration is in place.
   - The community.general.lvg module is used to create the "MQStorageVG" volume group. It associates the volume group with the physical volume specified by the 'mq_storage_dev' variable.
   - Following that, the community.general.lvol module creates the "MQStorageLV" logical volume within the "MQStorageVG" volume group. The logical volume is sized to occupy 100% of the available free space within the volume group.
-<br>
-<br>
+
+
 - Set Fact and Debug:
 
   - The set_fact task sets the part_name fact based on the value of the 'rdqm_storage_dev' variable. This fact determines the name of the storage device partition to be created.
   - The debug task is used to display the value of the 'part_name' fact for debugging purposes. It helps verify the correctness of the fact assignment.
-<br>
-<br>
+
+
 - Create the DRBD Pool storage:
 
   - This block of tasks executes only when the "drbdpool" volume group is not present on the system, ensuring the required storage configuration for the DRBD (Distributed Replicated Block Device) pool.
@@ -85,22 +85,22 @@ This task imports the tasks defined in the mq-download.yaml file to download and
 
   - This task sets the 'ouros' fact to "linux" when the target operating system is either RHEL (Red Hat Enterprise Linux) or CentOS.
   - By setting this fact, the code determines the appropriate download URL for the MQ software based on the Linux operating system.
-<br>
-<br>
+
+
 - Set fact for Ubuntu as our OS:
 
   - This task sets the 'ouros' fact to "ubuntu" when the target operating system is Ubuntu.
   -  Similar to the previous task, this fact is used to determine the correct download URL for the MQ software specific to the Ubuntu operating system.
-<br>
-<br>
+
+
 - Download MQ Advanced for Developers:
 
   - This task utilizes the get_url module to download the MQ Advanced for Developers software package.
   - The URL is constructed dynamically based on the 'mq_dl_url' variable, version variable (replacing periods with empty spaces), and the 'ouros' fact (representing the Linux distribution).
   -  The downloaded software is saved to the /tmp/mq.tar.gz file.
   -  This task is tagged with "download" for easy identification and selective execution.
-<br>
-<br>
+
+
 - Extract MQ from TAR:
 
   - This task uses the unarchive module to extract the MQ software from the /tmp/mq.tar.gz archive.
@@ -117,27 +117,27 @@ It handles the installation process, including software verification and configu
 
   - This task runs the MQ license acceptance script by executing the mqlicense.sh -accept command in the /tmp/MQServer/ directory.
   - The output of the command is stored in the 'license_out' variable using the register keyword. This helps capture the result of the license acceptance process.
-<br>
-<br>
+
+
 - Collect a list of MQ packages to install:
 
   - This task retrieves a list of MQ package files available in the /tmp/MQServer/ directory using the ls command.
   - The list of package files is stored in the 'packagelist' variable using the register keyword.
-<br>
-<br>
+
+
 - Install MQ Software RPMS or DEB files:
 
   - Depending on the operating system (os), either RPM packages (for rhel) or DEB files (for ubuntu) are installed using the appropriate package manager (ansible.builtin.dnf or ansible.builtin.apt).
   - The package names to install are provided as the values of the 'packagelist.stdout_lines' variable.
   - The installation is performed with additional settings like disabling GPG check and ensuring the desired package state (present).
-<br>
-<br>
+
+
 - Run setmqinst on primary nodes:
 
   - This task executes the `setmqinst` command, which initializes the MQ installation by setting the installation path (MQ_INSTALLATION_PATH).
   - The command is only executed on nodes where the "primary" role is assigned. This ensures that the MQ installation is properly configured on primary nodes only.
-<br>
-<br>
+
+
 - Install RDQM block:
   - This RDQM block of tasks focuses on installing and configuring components related to RDQM, which enables the replication and disaster recovery capabilities of IBM MQ. It ensures data redundancy and high availability in messaging systems.
   
@@ -146,93 +146,93 @@ It handles the installation process, including software verification and configu
   - This task retrieves the version of the DRBD (Distributed Replicated Block Device) kernel module installed on the system.
   - The shell module executes the command `'/tmp/MQServer/Advanced/RDQM/PreReqs/{{ rel }}/kmod-drbd-9/modver'`, storing the output in the 'kmodver' variable using the register keyword.
   - The failed_when condition checks if the return code (rc) is 1, indicating a failure in retrieving the version. This allows for handling scenarios where the DRBD kernel module is not present.
-<br>
-<br>
+
+
 - Collect a list of pacemaker packages to install:
 
   - This task retrieves a list of pacemaker packages available in the '/tmp/MQServer/Advanced/RDQM/PreReqs/{{ rel }}/pacemaker-2/' directory using the ls command.
   - The list of package files is stored in the 'pacemakerlist' variable using the register keyword.
   - The packages will be installed later to ensure the necessary dependencies for pacemaker are met.
-<br>
-<br>
+
+
 - Collect a list of DRBD packages to install:
 
   - This task retrieves a list of DRBD packages available in the '/tmp/MQServer/Advanced/RDQM/PreReqs/{{ rel }}/drbd-utils-9/drbd-*/' directory using the ls command.
   - The list of package files is stored in the 'drbdlist' variable using the register keyword.
   - The packages will be installed later to ensure the necessary dependencies for DRBD are met.
-<br>
-<br>
+
+
 - Grab the name of the RDQM package to install:
 
   - This task retrieves the name of the RDQM package available in the '/tmp/MQServer/Advanced/RDQM/MQSeriesRDQM-*' directory using the ls command.
   - The package name is stored in the 'rdqmpkg' variable using the register keyword.
   - This package will be installed later to enable RDQM features in IBM MQ.
-<br>
-<br>
+
+
 - Install DRBD kmod:
 
   - This task uses the ansible.builtin.dnf module to install the DRBD kernel module (kmod-drbd) package.
   - The package path is constructed dynamically based on the retrieved version (kmodver.stdout), allowing for the installation of the specific version required by the system.
   - Additional settings such as disabling GPG check and ensuring the package state (present) are applied during installation.
-<br>
-<br>
+
+
 - Install pacemaker packages:
 
   - This task uses the ansible.builtin.dnf module to install the pacemaker packages necessary for RDQM.
   - The package names are provided as values from the 'pacemakerlist.stdout_lines' variable.
   - Additional settings such as disabling GPG check and ensuring the package state (present) are applied during installation.
-<br>
-<br>
+
+
 - Install DRBD packages:
 
   - This task uses the ansible.builtin.dnf module to install the DRBD packages required for RDQM.
   - The package names are provided as values from the 'drbdlist.stdout_lines' variable.
   - Additional settings such as disabling GPG check and ensuring the package state (present) are applied during installation.
-<br>
-<br>
+
+
 - Install RDQM Package:
 
   - This task uses the ansible.builtin.dnf module to install the RDQM package.
   - The package name is provided as the value from the 'rdqmpkg.stdout' variable.
   - Additional settings such as disabling GPG check and ensuring the package state (present) are applied during installation.
-<br>
-<br>
+
+
 - Set the SELinux Context for DRBD:
 
   - This task uses the shell module to execute the `semanage permissive -a drbd_t` command.
   - It sets the SELinux context to permissive for the DRBD component, allowing it to function properly within the SELinux security framework.
-<br>
-<br>
+
+
 - Set the mq user to be in the haclient group:
 
   - This task uses the ansible.builtin.user module to add the "mqm" user to the "haclient" group.
   - The name parameter specifies the user to modify, and the groups parameter specifies the group to which the user should be added.
   - The append parameter ensures that the user is added to the group without removing any existing group memberships.
-<br>
-<br>
+
+
 - Generate the rdqm.ini file for primary hosts:
 
   - This task generates the rdqm.ini configuration file for primary hosts using the ansible.builtin.template module.
   - The source template file (rdqm.ini.j2) and destination path (/var/mqm/rdqm.ini) are specified.
   - The owner, group, and mode parameters set the ownership and permissions of the generated file.
   - The 'hostgroup' variable is passed to the template, allowing customization based on the primary host's group.
-<br>
-<br>
+
+
 - Generate the rdqm.ini file for standby hosts:
 
   - This task generates the rdqm.ini configuration file for standby hosts, similar to the previous task.
   - The generation occurs only if the host is in the "standby" group and the DR state includes "passive".
   - The 'hostgroup' variable is passed to the template, allowing customization based on the standby host's group.
-<br>
-<br>
+
+
 - Enable the local cluster:
 
   - This task uses the shell module to execute the `/opt/mqm/bin/rdqmadm -c `command, enabling the local cluster for RDQM.
   - The register keyword captures the output and status of the command in the 'clusterconfigprimary' variable.
   - The task fails if the return code (rc) is not equal to 0, indicating a failure in enabling the local cluster.
   - The execution of this task depends on whether changes were made to the rdqm.ini file (createdrdqmprimary.changed).
-<br>
-<br>
+
+
 - Enable the remote cluster:
 
   - This task uses the shell module to execute the `/opt/mqm/bin/rdqmadm -c` command, enabling the remote cluster for RDQM.
@@ -249,8 +249,8 @@ This task creates queue managers defined in the 'group_vars' (/solution-mq-rdqm-
   - This task retrieves a list of currently existing queue managers using the `dspmq` command and some text processing with `awk` and `sed`.
   - The list of queue manager names is stored in the 'qmgrlist' variable using the register keyword.
   - This information helps determine if a queue manager needs to be created and which may already exist. 
-<br>
-<br>
+
+
 - Create Queue Managers:
 
   - This block of tasks handles the creation of queue managers based on certain conditions.
@@ -262,8 +262,8 @@ This task creates queue managers defined in the 'group_vars' (/solution-mq-rdqm-
   - If the queue manager is marked as HA (High Availability) and not DR (Disaster Recovery), an additional MQSC (MQ Scripting Command) file template templates/qmgr_settings.mqsc.j2 is set up.
   - The MQSC file is applied to the queue managers, configuring specific settings related to channel, queues, security, and listener.
   - Once applied, the MQSC template file is cleaned up.
-<br>
-<br>
+
+
 - Open the firewall if necessary:
 
   - This block of tasks manages the opening of firewall ports if the enable_rdqm variable is set to true.
@@ -279,8 +279,8 @@ This task imports the tasks defined in the mq-create-queues.yaml and is designed
   - It generates command files for creating queues using a template file templates/create_queue.in.j2.
   - The template file is customized for each queue manager defined in the 'queuemgrs' list.
   - The resulting command files are stored in /tmp/ with the queue manager name as the filename.
-<br>
-<br>
+
+
 - Create the Queues:
 
   - This task is executed when changes occur in the generated command files.
@@ -288,8 +288,8 @@ This task imports the tasks defined in the mq-create-queues.yaml and is designed
   - The task is run as the mqm user using become_user.
   - The success or failure of the queue creation is determined based on the output of the `runmqsc` command.
   - If the queue creation fails, the task fails if the return code (rc) is not 0 or 10, and the output doesn't contain the message indicating no syntax errors.
-<br>
-<br>
+
+
 - Clean Up:
 
   - After the queue creation task, the command files (*.in) generated earlier are removed to clean up the temporary files.
