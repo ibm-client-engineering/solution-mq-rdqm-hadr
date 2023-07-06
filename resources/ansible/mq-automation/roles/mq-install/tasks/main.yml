@@ -31,9 +31,9 @@
 
 - name: Start MQ Queue Managers
   import_tasks: mq-start-RDQM.yaml
-  tags: startqm
+  tags: [ startqm, never ]
 
 - name: Stop MQ Queue Managers
   import_tasks: mq-stop-RDQM.yaml
-  tags: stopqm
+  tags: [ stopqm, never ] 
 

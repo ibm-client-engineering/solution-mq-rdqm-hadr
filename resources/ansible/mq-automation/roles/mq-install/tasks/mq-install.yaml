@@ -85,7 +85,7 @@
   - name: Generate the rdqm.ini file for primary hosts
     when: "'active' in dr_state"
     ansible.builtin.template:
-      src: templates/rdqm.ini.j2
+      src: templates/rdqm_PR.ini.j2
       dest: /var/mqm/rdqm.ini
       owner: mqm
       group: mqm
@@ -95,9 +95,9 @@
     register: createdrdqmprimary
 
   - name: Generate the rdqm.ini file for standby hosts
-    when: "'passive' in dr_state and 'standby' in groups"
+    when: "'passive' in dr_state"
     ansible.builtin.template:
-      src: templates/rdqm.ini.j2
+      src: templates/rdqm_DR.ini.j2
       dest: /var/mqm/rdqm.ini
       owner: mqm
       group: mqm
@@ -105,13 +105,13 @@
     vars:
       hostgroup: "{{ groups['standby'] }}"
     register: createdrdqmstandby
-  
+
   - name: Enable the local cluster
     shell: "/opt/mqm/bin/rdqmadm -c"
     register: clusterconfigprimary
     failed_when: clusterconfigprimary.rc != 0
     when: createdrdqmprimary.changed
-    
+
   - name: Enable the remote cluster
     shell: "/opt/mqm/bin/rdqmadm -c"
     register: clusterconfigstandby

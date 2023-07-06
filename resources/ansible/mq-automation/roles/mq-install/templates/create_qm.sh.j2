@@ -30,7 +30,8 @@ done #}
     RI_IP_ADDRESSES="{{ (groups['standby'] if 'active' in dr_state else groups['primary']) | map('extract', hostvars, ('backend_ip' if hostvars[inventory_hostname].backend_ip else 'ansible_host')) | join(',') }}"
     RL_IP_ADDRESSES="{{ (groups['primary'] if 'active' in dr_state else groups['standby']) | map('extract', hostvars, ('backend_ip' if hostvars[inventory_hostname].backend_ip else 'ansible_host')) | join(',') }}"
 
-    sudo /opt/mqm/bin/crtmqm {{ '-sxs' if mq_role == 'standby' else '-sx' }} -rr {{ 'p' if dr_state == 'active' else 's' }} -rl $RL_IP_ADDRESSES -ri $RI_IP_ADDRESSES -rp $RP_PORT -fs $QM_SIZE $QM_NAME
+    sudo /opt/mqm/bin/crtmqm {{ '-sxs' if mq_role == 'standby' else '-sx' }} -rr {{ 'p' if dr_state == 'active' else 's' }} -rl $RL_IP_ADDRESSES -ri $RI_IP_ADDRESSES -rp $RP_PORT -fs $QM_SIZE $QM_NAME #}
+{#    sudo /opt/mqm/bin/crtmqm {{ '-sxs' if mq_role == 'standby' else '-sx' }} -rr {{ 'p' if dr_state == 'active' else 's' }} -rp $RP_PORT -fs $QM_SIZE $QM_NAME #}
 {% endif %}
 
 {% if not qm.is_dr|bool and qm.is_ha|bool and 'active' in dr_state %}

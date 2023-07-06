@@ -7,3 +7,12 @@ Node:
   HA_Replication={{ hostvars[host].ansible_host }}
 {% endif %}
 {% endfor %}
+DRGroup:
+  Name=DR1
+{% for host in groups['standby'] %}
+{% if hostvars[host].backend_ip %}
+  DR_Replication={{ hostvars[host].backend_ip }}
+{% else %}
+  DR_Replication={{ hostvars[host].ansible_host }}
+{% endif %}
+{% endfor %}
