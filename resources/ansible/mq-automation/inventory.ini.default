@@ -1,6 +1,3 @@
-[mqipt_hosts]
-mqipt ansible_host=<MQIPTIP> ansible_user=root
-
 # Backend ip is optional. Only use it if you have a dedicated subnet for cluster traffic
 # Also important that the host names fqdn match what the node is actually called
 [primary]
