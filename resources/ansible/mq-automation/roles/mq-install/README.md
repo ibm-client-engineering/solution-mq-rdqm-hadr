@@ -299,7 +299,6 @@ This task imports the tasks defined in the mq-create-queues.yaml and is designed
 This task imports the tasks defined in the mq-start-RDQM.yaml and mq-stop-RDQM.yaml and is designed to stop and start queue managers created during installation.
 
 <br>
-<br>
 
 # Requirements
 
