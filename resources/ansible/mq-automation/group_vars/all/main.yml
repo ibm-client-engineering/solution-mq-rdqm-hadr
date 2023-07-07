@@ -1,33 +1,40 @@
 ---
 # vars file for mq-testing
 MQM_BIN_PATH: "/opt/mqm/bin"
+enable_rdqm: true
+create_queues: false
 queuemgrs: 
-  - name: "HAQM1"
-    queue: "HAQM1.LOCAL.QUEUE"
-    channel: "HAQM1.SRVCONN"
-    listener: "HAQM1.LISTENER"
-    is_dr: false
+  - name: "TESTQMGR1"
+    queue: "DEFAULT.LOCAL.QUEUE"
+    channel: "TESTQMGR1.SRVCONN"
+    listener: "TESTQMGR1.LISTENER"
+    is_dr: true
     is_ha: true
     size: "1024M"
     listen_port: "1501"
-  - name: "HAQM2"
-    queue: "HAQM2.LOCAL.QUEUE"
-    channel: "HAQM2.SRVCONN"
-    listener: "HAQM2.LISTENER"
-    is_dr: false
+    extra_queues:
+      - "TESTQMGREXTRA1.LOCAL.QUEUE"
+      - "TESTQMGREXTRA2.LOCAL.QUEUE"
+  - name: "TESTQMGR2"
+    queue: "DEFAULT.LOCAL.QUEUE"
+    channel: "TESTQMGR2.SRVCONN"
+    listener: "TESTQMGR2.LISTENER"
+    is_dr: true
     is_ha: true
     size: "1024M"
     listen_port: "1502"
-  - name: "HAQM3"
-    queue: "HAQM3.LOCAL.QUEUE"
-    channel: "HAQM3.SRVCONN"
-    listener: "HAQM3.LISTENER"
+    extra_queues:
+      - "TESTQMGREXTRA2.LOCAL.QUEUE"
+  - name: "TESTQMGR3"
+    queue: "DEFAULT.LOCAL.QUEUE"
+    channel: "TESTQMGR3.SRVCONN"
+    listener: "TESTQMGR3.LISTENER"
     is_dr: false
     is_ha: true
-    size: "2048M"
+    size: "1024M"
     listen_port: "1503"
-enable_rdqm: true
-create_queues: false
+    extra_queues:
+      - "TESTQMGREXTRA3.LOCAL.QUEUE"
 
 mqm_uid: 1001
 mqm_gid: 1001

@@ -1,12 +1,11 @@
-[mqipt_hosts]
-mqipt ansible_host=<MQIPTIP> ansible_user=root
-
+# Backend ip is optional. Only use it if you have a dedicated subnet for cluster traffic
+# Also important that the host names fqdn match what the node is actually called
 [primary]
 wdc1-mq1.fqdn.com ansible_host=a.b.c.d backend_ip=c.d.e.f mq_role=primary
 wdc2-mq1.fqdn.com ansible_host=a.b.c.e backend_ip=c.d.e.g mq_role=standby
 wdc3-mq1.fqdn.com ansible_host=a.b.c.f backend_ip=c.d.e.h mq_role=standby
 
-[dr]
+[standby]
 dal1-mq1.fqdn.com ansible_host=a.b.d.e backend_ip=c.d.e.g mq_role=primary
 dal2-mq1.fqdn.com ansible_host=a.b.d.f backend_ip=c.d.e.h mq_role=standby
 dal3-mq1.fqdn.com ansible_host=a.b.d.g backend_ip=c.d.e.j mq_role=standby
@@ -15,12 +14,10 @@ dal3-mq1.fqdn.com ansible_host=a.b.d.g backend_ip=c.d.e.j mq_role=standby
 ansible_port=22
 ansible_user=root
 private_key_file=keys/keyfile
-#load_balancer="<LOADBALANCERWASHINGTON>"
-#ansible_ssh_common_args='-l root -i keys/keyfile -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand="ssh -l root -i keys/keyfile -W %h:%p -q <BASTIONIP>"'
+dr_state=active
 
-[dr:vars]
+[standby:vars]
 ansible_port=22
 ansible_user=root
 private_key_file=keys/keyfile
-#load_balancer="<LOADBALANCERDALLAS>"
-#ansible_ssh_common_args='-l root -i keys/keyfile -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand="ssh -l root -i keys/keyfile -W %h:%p -q <BASTIONIP>"'
+dr_state=passive

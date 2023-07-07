@@ -1,0 +1,18 @@
+{% for host in hostgroup %}
+Node:
+  Name={{ hostvars[host].inventory_hostname }}
+{% if hostvars[host].backend_ip %}
+  HA_Replication={{ hostvars[host].backend_ip }}
+{% else %}
+  HA_Replication={{ hostvars[host].ansible_host }}
+{% endif %}
+{% endfor %}
+DRGroup:
+  Name=DR1
+{% for host in groups['primary'] %}
+{% if hostvars[host].backend_ip %}
+  DR_Replication={{ hostvars[host].backend_ip }}
+{% else %}
+  DR_Replication={{ hostvars[host].ansible_host }}
+{% endif %}
+{% endfor %}

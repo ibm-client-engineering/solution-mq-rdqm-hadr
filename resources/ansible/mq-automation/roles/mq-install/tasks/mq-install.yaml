@@ -11,25 +11,26 @@
     verbosity: 1
 
 - name: Install MQ Software RPMS
+  when: os == 'rhel'
   ansible.builtin.dnf:
     name: "{{ packagelist.stdout_lines }}" 
     disable_gpg_check: true
     state: present
-  when: os == 'rhel'
 
 - name: Install MQ Software DEB files
+  when: os == 'ubuntu'
   ansible.builtin.apt:
     name: "{{ packagelist.stdout_lines }}" 
     allow_unauthenticated: true
     state: present
-  when: os == 'ubuntu'
 
 - name: Run setmqinst on primary nodes
+  when: "'primary' in mq_role"
   shell: "{{ MQ_INSTALLATION_PATH }}/bin/setmqinst -i -p {{ MQ_INSTALLATION_PATH }}"
   register: setmqinst
-  when: "'primary' in mq_role"
 
 - name: Install RDQM
+  when: "enable_rdqm|bool"
   block:
   - name: Get our DRBD kmod version and set it as a fact
     shell: /tmp/MQServer/Advanced/RDQM/PreReqs/{{ rel }}/kmod-drbd-9/modver
@@ -65,7 +66,7 @@
       name: "{{ drbdlist.stdout_lines }}"
       disable_gpg_check: true
       state: present
-   
+
   - name: Install RDQM Package
     ansible.builtin.dnf:
       name: "{{ rdqmpkg.stdout }}"
@@ -80,20 +81,39 @@
       name: "mqm"
       groups: "haclient"
       append: true
-    
-  - name: Generate the rdqm.ini file for the hosts
+
+  - name: Generate the rdqm.ini file for primary hosts
+    when: "'active' in dr_state"
     ansible.builtin.template:
-      src: templates/rdqm.ini.j2
+      src: templates/rdqm_PR.ini.j2
       dest: /var/mqm/rdqm.ini
       owner: mqm
       group: mqm
       mode: '0644'
-    register: createdrdqm
-  
+    vars:
+      hostgroup: "{{ groups['primary'] }}"
+    register: createdrdqmprimary
+
+  - name: Generate the rdqm.ini file for standby hosts
+    when: "'passive' in dr_state"
+    ansible.builtin.template:
+      src: templates/rdqm_DR.ini.j2
+      dest: /var/mqm/rdqm.ini
+      owner: mqm
+      group: mqm
+      mode: '0644'
+    vars:
+      hostgroup: "{{ groups['standby'] }}"
+    register: createdrdqmstandby
+
   - name: Enable the local cluster
     shell: "/opt/mqm/bin/rdqmadm -c"
-    register: clusterconfig
-    failed_when: clusterconfig.rc != 0
-    when: createdrdqm.changed
-  when: "enable_rdqm|bool"
-    
+    register: clusterconfigprimary
+    failed_when: clusterconfigprimary.rc != 0
+    when: createdrdqmprimary.changed
+
+  - name: Enable the remote cluster
+    shell: "/opt/mqm/bin/rdqmadm -c"
+    register: clusterconfigstandby
+    failed_when: clusterconfigstandby.rc != 0
+    when: "'passive' in dr_state and createdrdqmstandby.changed"
