@@ -8,9 +8,14 @@
   set_fact:
     ouros: "ubuntu"
 
+- name: Set fact for our package name
+  when: "package is undefined or package|length == 0"
+  set_fact:
+    package: "mqadv_dev{{ version | replace('.', '') }}_{{ ouros }}_x86-64.tar.gz" 
+
 - name: Download MQ Advanced for Developers
   get_url:
-    url: "{{ mq_dl_url }}/mqadv_dev{{ version | replace('.', '') }}_{{ ouros }}_x86-64.tar.gz"
+    url: "{{ mq_dl_url }}/{{ package }}"
     dest: /tmp/mq.tar.gz
     force: no
   tags: download
