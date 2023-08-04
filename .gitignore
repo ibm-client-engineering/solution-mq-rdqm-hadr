@@ -1,5 +1,6 @@
 .vscode-upload.json
 data
+yarn.lock
 *.gz
 *.tgz
 
