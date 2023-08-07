@@ -1,7 +1,261 @@
-# mq-install 
+# Ansible Role - MQ Install 
 
 The "mq-automation" Ansible role is designed to automate the process of setting up and managing IBM MQ (Message Queue) infrastructure. It comprises a series of tasks that collectively handle the preparation of the operating system, creation of the MQ user and group, setup of necessary file systems, downloading and staging of the MQ software, installation of the software, creation of Queue Managers, creation of queues (based on a condition), and starting or stopping the Queue Managers. By leveraging this Ansible role, users can streamline the deployment and management of IBM MQ, ensuring consistent and efficient configuration while reducing manual effort and potential errors.
 
+# Task Chart
+
+```mermaid
+%%{ init: { "flowchart": { "curve": "bumpX" } } }%%
+flowchart LR
+	%% Start of the playbook 'playbook.yaml'
+	playbook_cb299955("playbook.yaml")
+		%% Start of the play 'Play: all (6)'
+		play_b5806164["Play: all (6)"]
+		style play_b5806164 fill:#7e4e58,color:#ffffff
+		playbook_cb299955 --> |"1"| play_b5806164
+		linkStyle 0 stroke:#7e4e58,color:#7e4e58
+			%% Start of the role 'mq-install'
+			play_b5806164 --> |"1"| role_e5210075
+			linkStyle 1 stroke:#7e4e58,color:#7e4e58
+			role_e5210075("[role] mq-install")
+			style role_e5210075 fill:#7e4e58,color:#ffffff,stroke:#7e4e58
+				task_8b2e069a[" mq-install : kernel.shmmni"]
+				style task_8b2e069a stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"1"| task_8b2e069a
+				linkStyle 2 stroke:#7e4e58,color:#7e4e58
+				task_b852fd0c[" mq-install : kernel.shmall"]
+				style task_b852fd0c stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"2"| task_b852fd0c
+				linkStyle 3 stroke:#7e4e58,color:#7e4e58
+				task_7e7598d5[" mq-install : kernel.shmmax"]
+				style task_7e7598d5 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"3"| task_7e7598d5
+				linkStyle 4 stroke:#7e4e58,color:#7e4e58
+				task_d4bf8937[" mq-install : kernel.sem"]
+				style task_d4bf8937 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"4"| task_d4bf8937
+				linkStyle 5 stroke:#7e4e58,color:#7e4e58
+				task_80c3df9f[" mq-install : fs.file-max"]
+				style task_80c3df9f stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"5"| task_80c3df9f
+				linkStyle 6 stroke:#7e4e58,color:#7e4e58
+				task_c2392d79[" mq-install : Hard nofile"]
+				style task_c2392d79 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"6"| task_c2392d79
+				linkStyle 7 stroke:#7e4e58,color:#7e4e58
+				task_39683bb5[" mq-install : Soft nofile"]
+				style task_39683bb5 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"7"| task_39683bb5
+				linkStyle 8 stroke:#7e4e58,color:#7e4e58
+				task_c48ab1f0[" mq-install : Install policy core utils"]
+				style task_c48ab1f0 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"8"| task_c48ab1f0
+				linkStyle 9 stroke:#7e4e58,color:#7e4e58
+				task_75caf78d[" mq-install : Create the group for mqm user"]
+				style task_75caf78d stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"9"| task_75caf78d
+				linkStyle 10 stroke:#7e4e58,color:#7e4e58
+				task_beff52a1[" mq-install : Create the user for mqm"]
+				style task_beff52a1 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"10"| task_beff52a1
+				linkStyle 11 stroke:#7e4e58,color:#7e4e58
+				task_e7f3599d[" mq-install : Set up MQ user's env vars"]
+				style task_e7f3599d stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"11"| task_e7f3599d
+				linkStyle 12 stroke:#7e4e58,color:#7e4e58
+				task_8ab6d2ba[" mq-install : Set up MQ user's sudoer privleges"]
+				style task_8ab6d2ba stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"12"| task_8ab6d2ba
+				linkStyle 13 stroke:#7e4e58,color:#7e4e58
+				task_fd7be95c[" mq-install : Create MQStorageVG"]
+				style task_fd7be95c stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"13 [when: 'MQStorageVG' not in ansible_facts.lvm.vgs.keys()|list]"| task_fd7be95c
+				linkStyle 14 stroke:#7e4e58,color:#7e4e58
+				task_ec2269ec[" mq-install : Create the LV for MQ Storage"]
+				style task_ec2269ec stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"14 [when: 'MQStorageVG' not in ansible_facts.lvm.vgs.keys()|list]"| task_ec2269ec
+				linkStyle 15 stroke:#7e4e58,color:#7e4e58
+				task_1f08dcdb[" mq-install : set_fact"]
+				style task_1f08dcdb stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"15"| task_1f08dcdb
+				linkStyle 16 stroke:#7e4e58,color:#7e4e58
+				task_77d21384[" mq-install : debug"]
+				style task_77d21384 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"16"| task_77d21384
+				linkStyle 17 stroke:#7e4e58,color:#7e4e58
+				task_2cc7597e[" mq-install : Reset the fact for our primary partition in case we got NVME ssd"]
+				style task_2cc7597e stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"17 [when: 'drbdpool' not in ansible_facts.lvm.vgs.keys()|list and 'nvme' in rdqm_storage_dev]"| task_2cc7597e
+				linkStyle 18 stroke:#7e4e58,color:#7e4e58
+				task_9fdbe793[" mq-install : Part up the Device"]
+				style task_9fdbe793 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"18 [when: 'drbdpool' not in ansible_facts.lvm.vgs.keys()|list]"| task_9fdbe793
+				linkStyle 19 stroke:#7e4e58,color:#7e4e58
+				task_000cacbe[" mq-install : Configure the DRBD pool storage device"]
+				style task_000cacbe stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"19 [when: 'drbdpool' not in ansible_facts.lvm.vgs.keys()|list]"| task_000cacbe
+				linkStyle 20 stroke:#7e4e58,color:#7e4e58
+				task_6d800217[" mq-install : Set fact for Linux as our OS"]
+				style task_6d800217 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"20 [when: 'rhel' in os or 'centos' in os]"| task_6d800217
+				linkStyle 21 stroke:#7e4e58,color:#7e4e58
+				task_3f31796b[" mq-install : Set fact for Ubuntu as our OS"]
+				style task_3f31796b stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"21 [when: 'ubuntu' in os]"| task_3f31796b
+				linkStyle 22 stroke:#7e4e58,color:#7e4e58
+				task_0b118aff[" mq-install : Download MQ Advanced for Developers"]
+				style task_0b118aff stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"22"| task_0b118aff
+				linkStyle 23 stroke:#7e4e58,color:#7e4e58
+				task_3b753bd1[" mq-install : Extract MQ fom TAR"]
+				style task_3b753bd1 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"23"| task_3b753bd1
+				linkStyle 24 stroke:#7e4e58,color:#7e4e58
+				task_9378f43b[" mq-install : Accept MQ License"]
+				style task_9378f43b stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"24"| task_9378f43b
+				linkStyle 25 stroke:#7e4e58,color:#7e4e58
+				task_053f0714[" mq-install : Collect a list of MQ packages to install"]
+				style task_053f0714 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"25"| task_053f0714
+				linkStyle 26 stroke:#7e4e58,color:#7e4e58
+				task_ea281768[" mq-install : debug"]
+				style task_ea281768 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"26"| task_ea281768
+				linkStyle 27 stroke:#7e4e58,color:#7e4e58
+				task_5313ddee[" mq-install : Install MQ Software RPMS"]
+				style task_5313ddee stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"27 [when: os == 'rhel']"| task_5313ddee
+				linkStyle 28 stroke:#7e4e58,color:#7e4e58
+				task_e3225d2b[" mq-install : Install MQ Software DEB files"]
+				style task_e3225d2b stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"28 [when: os == 'ubuntu']"| task_e3225d2b
+				linkStyle 29 stroke:#7e4e58,color:#7e4e58
+				task_e31d0ade[" mq-install : Run setmqinst on primary nodes"]
+				style task_e31d0ade stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"29 [when: 'primary' in mq_role]"| task_e31d0ade
+				linkStyle 30 stroke:#7e4e58,color:#7e4e58
+				task_7e55f38d[" mq-install : Get our DRBD kmod version and set it as a fact"]
+				style task_7e55f38d stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"30 [when: enable_rdqm|bool]"| task_7e55f38d
+				linkStyle 31 stroke:#7e4e58,color:#7e4e58
+				task_99e3d2f2[" mq-install : Collect a list of pacemaker packages to install"]
+				style task_99e3d2f2 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"31 [when: enable_rdqm|bool]"| task_99e3d2f2
+				linkStyle 32 stroke:#7e4e58,color:#7e4e58
+				task_b83dbe8a[" mq-install : Collect a list of drbd packages to install"]
+				style task_b83dbe8a stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"32 [when: enable_rdqm|bool]"| task_b83dbe8a
+				linkStyle 33 stroke:#7e4e58,color:#7e4e58
+				task_cde13290[" mq-install : Grab the name of the RDQM package to install"]
+				style task_cde13290 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"33 [when: enable_rdqm|bool]"| task_cde13290
+				linkStyle 34 stroke:#7e4e58,color:#7e4e58
+				task_8e885383[" mq-install : Install DRBD kmod"]
+				style task_8e885383 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"34 [when: enable_rdqm|bool]"| task_8e885383
+				linkStyle 35 stroke:#7e4e58,color:#7e4e58
+				task_04be6063[" mq-install : Install pacemaker packages"]
+				style task_04be6063 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"35 [when: enable_rdqm|bool]"| task_04be6063
+				linkStyle 36 stroke:#7e4e58,color:#7e4e58
+				task_df3b382e[" mq-install : Install drbd packages"]
+				style task_df3b382e stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"36 [when: enable_rdqm|bool]"| task_df3b382e
+				linkStyle 37 stroke:#7e4e58,color:#7e4e58
+				task_66c79a6c[" mq-install : Install RDQM Package"]
+				style task_66c79a6c stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"37 [when: enable_rdqm|bool]"| task_66c79a6c
+				linkStyle 38 stroke:#7e4e58,color:#7e4e58
+				task_decdbedb[" mq-install : Set the SELinux Context for drbd"]
+				style task_decdbedb stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"38 [when: enable_rdqm|bool]"| task_decdbedb
+				linkStyle 39 stroke:#7e4e58,color:#7e4e58
+				task_b386f8ed[" mq-install : Set the mq user to be in the haclient group"]
+				style task_b386f8ed stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"39 [when: enable_rdqm|bool]"| task_b386f8ed
+				linkStyle 40 stroke:#7e4e58,color:#7e4e58
+				task_d209406c[" mq-install : Generate the rdqm.ini file for primary hosts"]
+				style task_d209406c stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"40 [when: enable_rdqm|bool and 'active' in dr_state]"| task_d209406c
+				linkStyle 41 stroke:#7e4e58,color:#7e4e58
+				task_965bcfd3[" mq-install : Generate the rdqm.ini file for standby hosts"]
+				style task_965bcfd3 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"41 [when: enable_rdqm|bool and 'passive' in dr_state]"| task_965bcfd3
+				linkStyle 42 stroke:#7e4e58,color:#7e4e58
+				task_82683080[" mq-install : Enable the local cluster"]
+				style task_82683080 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"42 [when: enable_rdqm|bool and createdrdqmprimary.changed]"| task_82683080
+				linkStyle 43 stroke:#7e4e58,color:#7e4e58
+				task_004a06a6[" mq-install : Enable the remote cluster"]
+				style task_004a06a6 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"43 [when: enable_rdqm|bool and 'passive' in dr_state and createdrdqmstandby.changed]"| task_004a06a6
+				linkStyle 44 stroke:#7e4e58,color:#7e4e58
+				task_50efe308[" mq-install : Get a list of existing Queue Managers"]
+				style task_50efe308 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"44"| task_50efe308
+				linkStyle 45 stroke:#7e4e58,color:#7e4e58
+				task_49363916[" mq-install : Set up the queue manager build template"]
+				style task_49363916 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"45 [when: enable_rdqm|bool]"| task_49363916
+				linkStyle 46 stroke:#7e4e58,color:#7e4e58
+				task_91447211[" mq-install : Run the queue manager creation script on standby nodes"]
+				style task_91447211 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"46 [when: enable_rdqm|bool and 'standby' in mq_role and qm.name not in qmgrlist.stdout_lines]"| task_91447211
+				linkStyle 47 stroke:#7e4e58,color:#7e4e58
+				task_212c57b5[" mq-install : Run the queue manager creation script on primary nodes"]
+				style task_212c57b5 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"47 [when: enable_rdqm|bool and 'primary' in mq_role and qm.name not in qmgrlist.stdout_lines]"| task_212c57b5
+				linkStyle 48 stroke:#7e4e58,color:#7e4e58
+				task_101c5e51[" mq-install : Delete the created template files"]
+				style task_101c5e51 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"48 [when: enable_rdqm|bool]"| task_101c5e51
+				linkStyle 49 stroke:#7e4e58,color:#7e4e58
+				task_95b8e5f4[" mq-install : Set up the queue manager MQSC file"]
+				style task_95b8e5f4 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"49 [when: enable_rdqm|bool and 'primary' in mq_role and qm.is_ha|bool and not qm.is_dr|bool and qm.name not in qmgrlist.stdout_lines]"| task_95b8e5f4
+				linkStyle 50 stroke:#7e4e58,color:#7e4e58
+				task_0cec9d16[" mq-install : Apply the MQSC to the queue managers"]
+				style task_0cec9d16 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"50 [when: enable_rdqm|bool and 'primary' in mq_role and qm.is_ha|bool and not qm.is_dr|bool and qm.name not in qmgrlist.stdout_lines and 'active' in dr_state]"| task_0cec9d16
+				linkStyle 51 stroke:#7e4e58,color:#7e4e58
+				task_cfe9aa8d[" mq-install : Clean up the template"]
+				style task_cfe9aa8d stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"51 [when: enable_rdqm|bool and qm_create.changed]"| task_cfe9aa8d
+				linkStyle 52 stroke:#7e4e58,color:#7e4e58
+				task_4576e529[" mq-install : Get status of firewalld"]
+				style task_4576e529 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"52 [when: enable_rdqm|bool]"| task_4576e529
+				linkStyle 53 stroke:#7e4e58,color:#7e4e58
+				task_d6f4f74f[" mq-install : Open firewall ports on all hosts"]
+				style task_d6f4f74f stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"53 [when: enable_rdqm|bool and firewalld_service_status.status.ActiveState == 'active']"| task_d6f4f74f
+				linkStyle 54 stroke:#7e4e58,color:#7e4e58
+				task_bc2ccc0e[" mq-install : Generate our templated command files"]
+				style task_bc2ccc0e stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"54 [when: create_queues|bool and 'primary' in mq_role and create_queues|bool]"| task_bc2ccc0e
+				linkStyle 55 stroke:#7e4e58,color:#7e4e58
+				task_077f8767[" mq-install : debug"]
+				style task_077f8767 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"55 [when: create_queues|bool and 'primary' in mq_role and create_queues|bool]"| task_077f8767
+				linkStyle 56 stroke:#7e4e58,color:#7e4e58
+				task_f6e6b43d[" mq-install : Create the Queues"]
+				style task_f6e6b43d stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"56 [when: create_queues|bool and 'primary' in mq_role and create_queues|bool and template_create.changed]"| task_f6e6b43d
+				linkStyle 57 stroke:#7e4e58,color:#7e4e58
+				task_e120d3c9[" mq-install : Dump the queue_create_out"]
+				style task_e120d3c9 stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"57 [when: create_queues|bool and 'primary' in mq_role and create_queues|bool]"| task_e120d3c9
+				linkStyle 58 stroke:#7e4e58,color:#7e4e58
+				task_15324fdc[" mq-install : Clean up the template"]
+				style task_15324fdc stroke:#7e4e58,fill:#ffffff
+				role_e5210075 --> |"58 [when: create_queues|bool and 'primary' in mq_role and create_queues|bool]"| task_15324fdc
+				linkStyle 59 stroke:#7e4e58,color:#7e4e58
+			%% End of the role 'mq-install'
+		%% End of the play 'Play: all (6)'
+	%% End of the playbook 'playbook.yaml'
+
+```
 ## Prepare the OS:
 
 This task imports the tasks defined in the mq-os-setup.yaml file to prepare the operating system for IBM MQ installation.
