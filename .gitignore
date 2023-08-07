@@ -2,6 +2,7 @@
 .vscode
 website/package-lock.json
 data
+yarn.lock
 *.gz
 *.tgz
 

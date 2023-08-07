@@ -40,6 +40,7 @@ mqm_uid: 1001
 mqm_gid: 1001
 
 version: 9.3.2
+package: 
 os: rhel 
 rel: el8
 
