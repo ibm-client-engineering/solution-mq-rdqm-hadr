@@ -1,26 +1,36 @@
-- name: Collect any existing VGs since the lvol module isn't idempotent 
-  shell: vgs --noheadings | egrep "MQStorageVG|drbdpool" | awk '{print $1}'
-  register: vgsout
-
 - name: Configure MQ Storage Device
+  when: "'MQStorageVG' not in ansible_facts.lvm.vgs.keys()|list"
   block:
   - name: Create MQStorageVG
+    failed_when: "mq_storage_dev not in ansible_facts.devices.keys()|list"
     community.general.lvg:
       vg: MQStorageVG
-      pvs: "{{ mq_storage_dev }}"
+      pvs: "/dev/{{ mq_storage_dev }}"
 
   - name: Create the LV for MQ Storage
     community.general.lvol:
       vg: MQStorageVG
       lv: MQStorageLV
       size: 100%FREE
-  when: "'MQStorageVG' not in vgsout.stdout_lines"
+
+- set_fact:
+    part_name: "{{ rdqm_storage_dev }}1"
+
+- debug:
+    msg: "{{ part_name }}"
 
 - name: Create the DRBD Pool storage
+  when: "'drbdpool' not in ansible_facts.lvm.vgs.keys()|list"
   block:
+  - name: Reset the fact for our primary partition in case we got NVME ssd 
+    set_fact:
+      part_name: "{{ rdqm_storage_dev }}p1"
+    when: "'nvme' in rdqm_storage_dev"
+
   - name: Part up the Device
+    failed_when: "rdqm_storage_dev not in ansible_facts.devices.keys()|list"
     community.general.parted:
-      device: "{{ rdqm_storage_dev }}"
+      device: "/dev/{{ rdqm_storage_dev }}"
       number: 1
       state: present
       fs_type: ext4
@@ -28,5 +38,4 @@
   - name: Configure the DRBD pool storage device
     community.general.lvg:
       vg: drbdpool
-      pvs: "{{ rdqm_storage_dev }}1"
-  when: "'drbdpool' not in vgsout.stdout_lines"
+      pvs: "/dev/{{ part_name }}"

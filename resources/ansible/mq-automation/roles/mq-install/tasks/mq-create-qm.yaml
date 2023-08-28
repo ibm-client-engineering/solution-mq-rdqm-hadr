@@ -1,0 +1,104 @@
+- name: Get a list of existing Queue Managers
+# when: "'primary' in hostvars[inventory_hostname].mq_role"
+  shell: "/opt/mqm/bin/dspmq | awk '{print $1}' | sed 's/^QMNAME(//' | sed 's/)//'"
+  register: qmgrlist
+
+- name: Create Queue Managers
+  when: "enable_rdqm|bool"
+  block:
+  - name: Set up the queue manager build template 
+    # become_user: mqm
+    ansible.builtin.template:
+      src: templates/create_qm.sh.j2
+      dest: /tmp/{{ qm.name }}_create_qm.sh
+      owner: mqm
+      group: mqm
+      mode: 0755
+    loop: "{{ queuemgrs }}"
+    loop_control:
+      loop_var: qm
+      label: "{{ qm.name }}"
+
+  - name: Run the queue manager creation script on standby nodes
+    when: "'standby' in mq_role and qm.name not in qmgrlist.stdout_lines"
+    become_user: mqm
+    shell: /tmp/{{ qm.name }}_create_qm.sh
+    loop: "{{ queuemgrs }}"
+    loop_control:
+      loop_var: qm
+      label: "{{ qm.name }}"
+
+  - name: Run the queue manager creation script on primary nodes
+    when: "'primary' in mq_role and qm.name not in qmgrlist.stdout_lines"
+    become_user: mqm
+    shell: /tmp/{{ qm.name }}_create_qm.sh
+    loop: "{{ queuemgrs }}"
+    loop_control:
+      loop_var: qm
+      label: "{{ qm.name }}"
+
+  - name: Delete the created template files
+    file:
+      path: /tmp/{{ qm.name }}_create_qm.sh
+      state: absent
+    loop: "{{ queuemgrs }}"
+    loop_control:
+      loop_var: qm
+      label: "{{ qm.name }}"
+
+
+  - name: Set up the queue manager MQSC file
+    when:
+      - "'primary' in mq_role and qm.is_ha|bool and not qm.is_dr|bool and qm.name not in qmgrlist.stdout_lines"
+    become_user: mqm
+    ansible.builtin.template:
+      src: templates/qmgr_settings.mqsc.j2
+      dest: /tmp/{{ qm.name }}_qmgr_settings.mqsc
+      mode: 0755
+    loop: "{{ queuemgrs }}"
+    loop_control:
+      loop_var: qm
+      label: "{{ qm.name }}"
+
+  - name: Apply the MQSC to the queue managers
+    when:
+      - "'primary' in mq_role and qm.is_ha|bool and not qm.is_dr|bool and qm.name not in qmgrlist.stdout_lines and 'active' in dr_state"
+    become_user: mqm
+    register: qm_create
+    shell: "/opt/mqm/bin/runmqsc -f /tmp/{{ qm.name }}_qmgr_settings.mqsc {{ qm.name }}"
+    loop: "{{ queuemgrs }}"
+    loop_control:
+      loop_var: qm
+      label: "{{ qm.name }}"
+
+  - name: Clean up the template
+    when: qm_create.changed
+    become_user: mqm
+    ansible.builtin.file:
+      path: /tmp/{{ qm.name }}_qmgr_settings.mqsc
+      state: absent
+    loop: "{{ queuemgrs }}"
+    loop_control:
+      loop_var: qm
+      label: "{{ qm.name }}"
+
+# Assume RHEL for now
+- name: Open the firewall if necessary
+  when: "enable_rdqm|bool"
+  block:
+  - name: Get status of firewalld
+    ansible.builtin.systemd:
+      name: 'firewalld.service'
+    register: firewalld_service_status
+
+  - name: Open firewall ports on all hosts
+    when: "firewalld_service_status.status.ActiveState == 'active'"
+    firewalld:
+      port: "{{ qm.listen_port }}/tcp"
+      permanent: true
+      state: enabled
+      immediate: yes
+    loop: "{{ queuemgrs }}"
+    loop_control:
+      loop_var: qm
+      label: "{{ qm.name }}"

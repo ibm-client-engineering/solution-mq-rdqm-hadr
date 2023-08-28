@@ -20,3 +20,20 @@
   import_tasks: mq-install.yaml
   tags: install, defaults
 
+- name: Create Queue Managers
+  import_tasks: mq-create-qm.yaml
+  tags: createqm, defaults
+
+- name: Create Queues 
+  when: create_queues|bool
+  import_tasks: mq-create-queues.yaml
+  tags: createqueues, defaults
+
+- name: Start MQ Queue Managers
+  import_tasks: mq-start-RDQM.yaml
+  tags: [ startqm, never ]
+
+- name: Stop MQ Queue Managers
+  import_tasks: mq-stop-RDQM.yaml
+  tags: [ stopqm, never ] 
+

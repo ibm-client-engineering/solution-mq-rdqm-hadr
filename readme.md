@@ -1873,7 +1873,16 @@ The destination addresses are the load balancer for each region. This will move 
 
 We create a user that is part of the `mqm` group on each node. This is the user we must connect as when we run the tests.
 
-### Testing with persistent messages with syncpoint
+Batch 8 got successfully, committing...
+Batch 8 committed successfully
+Batch 9 got successfully, committing...
+Batch 9 committed successfully
+Batch 10 got successfully, committing...
+Batch 10 committed successfully
+Completed
+```
+
+Everything looks good.### Testing with persistent messages with syncpoint
 
 Relevant github link:
 https://github.com/ibm-messaging/mq-rdqm
@@ -2263,16 +2272,7 @@ Batch 6 got successfully, committing...
 Batch 6 committed successfully
 Batch 7 got successfully, committing...
 Batch 7 committed successfully
-Batch 8 got successfully, committing...
-Batch 8 committed successfully
-Batch 9 got successfully, committing...
-Batch 9 committed successfully
-Batch 10 got successfully, committing...
-Batch 10 committed successfully
-Completed
-```
 
-Everything looks good.
 
 
 ### Enabling MQ Console

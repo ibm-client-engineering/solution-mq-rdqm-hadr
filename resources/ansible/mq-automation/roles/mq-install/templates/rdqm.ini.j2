@@ -1,9 +1,0 @@
-{% for host in ansible_play_hosts %}
-Node:
-  Name={{ hostvars[host].inventory_hostname }}
-  {% if hostvars[host].backend_ip %}
-  HA_Replication={{ hostvars[host].backend_ip }}
-  {% else %}
-  HA_Replication={{ hostvars[host].ansible_host }}
-  {% endif %}
-{% endfor %}

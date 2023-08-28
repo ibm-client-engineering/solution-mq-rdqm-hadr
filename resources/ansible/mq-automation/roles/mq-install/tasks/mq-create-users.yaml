@@ -4,13 +4,13 @@
     ansible.builtin.group:
       name: "mqm"
       state: present
-      gid: 1001
+      gid: "{{ mqm_gid }}"
 
   - name: Create the user for mqm
     ansible.builtin.user:
       name: "mqm"
       comment: MQM User
-      uid: 1001
+      uid: "{{ mqm_uid }}"
       group: "mqm"
 
   - name: Set up MQ user's env vars

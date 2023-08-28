@@ -1,0 +1,11 @@
+- hosts: primary,dr 
+  become: true
+  become_user: root
+  gather_facts: true
+  roles:
+  - role: mq-install
+
+#  - collections:
+#    name: community.general
+#    version: 4.8.0
+#    source: https://galaxy.ansible.com
