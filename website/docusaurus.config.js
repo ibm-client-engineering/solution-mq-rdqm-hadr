@@ -60,6 +60,19 @@ const config = {
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
+        blog: {
+          path: 'flight-logs',
+          // Simple use-case: string editUrl
+          // editUrl: 'https://github.com/facebook/docusaurus/edit/main/website/',
+          // Advanced use-case: functional editUrl
+          editUrl: ({ locale, blogDirPath, blogPath, permalink }) =>
+            `https://github.com/ibm-client-engineering/solution-mq-rdqm-hadr/edit/main/website/${blogDirPath}/${blogPath}`,
+          blogTitle: 'Journey Log',
+          blogSidebarTitle: 'All our logs',
+          postsPerPage: 10,
+          remarkPlugins: [],
+          rehypePlugins: [],
+        }
       }),
     ],
   ],
@@ -94,7 +107,7 @@ const config = {
           //   position: 'left',
           //   label: 'Section',
           // },
-
+          {to: 'blog', label: 'Flight Logs', position: 'right'},
           {
             href: 'https://github.com/${vars.org}/${vars.project}',
             className: "header-github-link",
